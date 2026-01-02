@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: investerei
+      POSTGRES_PASSWORD: investerei
+      POSTGRES_DB: investerei
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  gateway:
+    build: ./backend/gateway
+    environment:
+      SERVER_PORT: 8080
+      JWT_SECRET: dev_change_me_please
+      AUTH_URL: http://auth:8081
+      PORTFOLIO_URL: http://portfolio:8082
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth
+      - portfolio
+
+  auth:
+    build: ./backend/auth-service
+    environment:
+      SERVER_PORT: 8081
+      DATABASE_URL: jdbc:postgresql://postgres:5432/investerei
+      DATABASE_USER: investerei
+      DATABASE_PASSWORD: investerei
+      JWT_SECRET: dev_change_me_please
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+
+  portfolio:
+    build: ./backend/portfolio-service
+    environment:
+      SERVER_PORT: 8082
+      DATABASE_URL: jdbc:postgresql://postgres:5432/investerei
+      DATABASE_USER: investerei
+      DATABASE_PASSWORD: investerei
+      JWT_SECRET: dev_change_me_please
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+
+  web:
+    build: ./frontend/web
+    environment:
+      # Gateway is the only public API surface
+      API_BASE_URL: http://localhost:8080
+    ports:
+      - "4200:80"
+    depends_on:
+      - gateway
+
+volumes:
+  dbdata:
+
+  ai-service:
+    build: ./ai/ai-service
+    ports:
+      - "8090:8090"
+    command: ["uvicorn","app.main:app","--host","0.0.0.0","--port","8090"]
