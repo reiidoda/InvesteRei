@@ -1,11 +1,11 @@
 package com.alphamath.portfolio.web;
 
-import com.alphamath.portfolio.trade.PaperAccount;
-import com.alphamath.portfolio.trade.TradeDecisionRequest;
-import com.alphamath.portfolio.trade.TradeProposal;
-import com.alphamath.portfolio.trade.TradeProposalRequest;
-import com.alphamath.portfolio.trade.TradeSeedRequest;
-import com.alphamath.portfolio.trade.TradeService;
+import com.alphamath.portfolio.domain.trade.PaperAccount;
+import com.alphamath.portfolio.domain.trade.TradeDecisionRequest;
+import com.alphamath.portfolio.domain.trade.TradeProposal;
+import com.alphamath.portfolio.domain.trade.TradeProposalRequest;
+import com.alphamath.portfolio.domain.trade.TradeSeedRequest;
+import com.alphamath.portfolio.application.trade.TradeService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,9 +15,11 @@ import java.security.Principal;
 @RequestMapping("/api/v1/trade")
 public class TradeController {
   private final TradeService trade;
+  private final SecurityGuard security;
 
-  public TradeController(TradeService trade) {
+  public TradeController(TradeService trade, SecurityGuard security) {
     this.trade = trade;
+    this.security = security;
   }
 
   @GetMapping("/account")
@@ -41,7 +43,11 @@ public class TradeController {
   }
 
   @PostMapping("/proposals/{id}/decision")
-  public TradeProposal decide(@PathVariable String id, @Valid @RequestBody TradeDecisionRequest req, Principal principal) {
+  public TradeProposal decide(@RequestHeader(value = "X-User-Mfa", required = false) String mfa,
+                              @PathVariable String id,
+                              @Valid @RequestBody TradeDecisionRequest req,
+                              Principal principal) {
+    security.requireMfa(mfa, "trade approval");
     return trade.decide(userId(principal), id, req);
   }
 

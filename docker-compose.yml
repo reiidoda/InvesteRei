@@ -22,11 +22,15 @@ services:
       JWT_SECRET: dev_change_me_please
       AUTH_URL: http://auth:8081
       PORTFOLIO_URL: http://portfolio:8082
+      AI_URL: http://ai:8090
+      SIMULATION_URL: http://simulation:8083
     ports:
       - "8080:8080"
     depends_on:
       - auth
       - portfolio
+      - ai
+      - simulation
 
   auth:
     build: ./backend/auth-service
@@ -49,10 +53,34 @@ services:
       DATABASE_USER: investerei
       DATABASE_PASSWORD: investerei
       JWT_SECRET: dev_change_me_please
+      AI_URL: http://ai:8090
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MARKETDATA_CSV_DIR: /data/market
+      MARKETDATA_CSV_ENABLED: "true"
     ports:
       - "8082:8082"
+    volumes:
+      - ./data/market:/data/market:ro
     depends_on:
       - postgres
+      - ai
+      - redis
+
+  simulation:
+    build: ./backend/simulation-service
+    environment:
+      SERVER_PORT: 8083
+      DATABASE_URL: jdbc:postgresql://postgres:5432/investerei
+      DATABASE_USER: investerei
+      DATABASE_PASSWORD: investerei
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - redis
 
   web:
     build: ./frontend/web
@@ -64,11 +92,11 @@ services:
     depends_on:
       - gateway
 
-volumes:
-  dbdata:
-
-  ai-service:
+  ai:
     build: ./ai/ai-service
     ports:
       - "8090:8090"
     command: ["uvicorn","app.main:app","--host","0.0.0.0","--port","8090"]
+
+volumes:
+  dbdata:

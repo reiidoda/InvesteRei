@@ -10,7 +10,7 @@ import { API_BASE } from '../../core/api';
     <div class="card">
       <h2 style="margin-top:0;">Risk Lab</h2>
       <p class="small">
-        Paste returns (JSON array). Computes Sharpe, Max Drawdown, VaR and CVaR (educational).
+        Paste returns (JSON array). Computes Sharpe, Max Drawdown, VaR and CVaR (decision-support analytics).
         Requires login.
       </p>
 

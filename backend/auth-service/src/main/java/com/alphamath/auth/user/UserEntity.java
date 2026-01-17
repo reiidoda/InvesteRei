@@ -21,6 +21,24 @@ public class UserEntity {
   @Column(name = "password_hash", nullable = false, length = 255)
   private String passwordHash;
 
+  @Column(name = "roles", length = 256)
+  private String roles = "USER";
+
+  @Column(name = "mfa_enabled", nullable = false)
+  private boolean mfaEnabled = false;
+
+  @Column(name = "mfa_method", length = 32)
+  private String mfaMethod;
+
+  @Column(name = "mfa_secret", length = 128)
+  private String mfaSecret;
+
+  @Column(name = "mfa_enrolled_at")
+  private Instant mfaEnrolledAt;
+
+  @Column(name = "mfa_verified_at")
+  private Instant mfaVerifiedAt;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt = Instant.now();
 }

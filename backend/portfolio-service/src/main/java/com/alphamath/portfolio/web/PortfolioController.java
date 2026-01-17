@@ -21,7 +21,7 @@ import com.alphamath.portfolio.math.MathUtils;
 public class PortfolioController {
 
   /**
-   * IMPORTANT: This endpoint returns a **simulation/optimization suggestion**, not financial advice.
+   * IMPORTANT: This endpoint returns an optimization proposal output, not financial advice.
    * For MVP, we use a robust heuristic (random search with constraints).
    * Replace with QP solver in production.
    */
@@ -70,10 +70,10 @@ public class PortfolioController {
       double var = MathUtils.quadForm(cov, w);
 
       return new OptimizeResponse(MathUtils.toList(w), exp, var,
-          "Educational optimization output only. Not financial advice.");
+          "Optimization output only. Not financial advice.");
     }
 
-Random rng = new Random(42);
+    Random rng = new Random(42);
     double bestObj = Double.POSITIVE_INFINITY;
     double[] bestW = null;
 

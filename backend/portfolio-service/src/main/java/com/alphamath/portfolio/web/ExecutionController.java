@@ -1,14 +1,14 @@
 package com.alphamath.portfolio.web;
 
-import com.alphamath.portfolio.execution.AssetClass;
-import com.alphamath.portfolio.execution.BrokerAccount;
-import com.alphamath.portfolio.execution.BrokerLinkRequest;
-import com.alphamath.portfolio.execution.BrokerProviderInfo;
-import com.alphamath.portfolio.execution.ExecutionIntent;
-import com.alphamath.portfolio.execution.ExecutionService;
-import com.alphamath.portfolio.execution.Region;
-import com.alphamath.portfolio.trade.TradeProposal;
-import com.alphamath.portfolio.trade.TradeService;
+import com.alphamath.portfolio.domain.execution.AssetClass;
+import com.alphamath.portfolio.domain.execution.BrokerAccount;
+import com.alphamath.portfolio.domain.execution.BrokerLinkRequest;
+import com.alphamath.portfolio.domain.execution.BrokerProviderInfo;
+import com.alphamath.portfolio.domain.execution.ExecutionIntent;
+import com.alphamath.portfolio.application.execution.ExecutionService;
+import com.alphamath.portfolio.domain.execution.Region;
+import com.alphamath.portfolio.domain.trade.TradeProposal;
+import com.alphamath.portfolio.application.trade.TradeService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,10 +20,12 @@ import java.util.List;
 public class ExecutionController {
   private final ExecutionService execution;
   private final TradeService trade;
+  private final SecurityGuard security;
 
-  public ExecutionController(ExecutionService execution, TradeService trade) {
+  public ExecutionController(ExecutionService execution, TradeService trade, SecurityGuard security) {
     this.execution = execution;
     this.trade = trade;
+    this.security = security;
   }
 
   @GetMapping("/providers")
@@ -38,7 +40,10 @@ public class ExecutionController {
   }
 
   @PostMapping("/accounts/link")
-  public BrokerAccount link(@Valid @RequestBody BrokerLinkRequest req, Principal principal) {
+  public BrokerAccount link(@RequestHeader(value = "X-User-Mfa", required = false) String mfa,
+                            @Valid @RequestBody BrokerLinkRequest req,
+                            Principal principal) {
+    security.requireMfa(mfa, "execution account link");
     return execution.linkAccount(userId(principal), req);
   }
 
@@ -53,13 +58,19 @@ public class ExecutionController {
   }
 
   @PostMapping("/intents/{proposalId}")
-  public ExecutionIntent create(@PathVariable String proposalId, Principal principal) {
+  public ExecutionIntent create(@RequestHeader(value = "X-User-Mfa", required = false) String mfa,
+                                @PathVariable String proposalId,
+                                Principal principal) {
+    security.requireMfa(mfa, "execution intent");
     TradeProposal proposal = trade.getProposal(userId(principal), proposalId);
     return execution.createIntent(userId(principal), proposal);
   }
 
   @PostMapping("/intents/{id}/simulate-fill")
-  public ExecutionIntent simulateFill(@PathVariable String id, Principal principal) {
+  public ExecutionIntent simulateFill(@RequestHeader(value = "X-User-Mfa", required = false) String mfa,
+                                      @PathVariable String id,
+                                      Principal principal) {
+    security.requireMfa(mfa, "execution simulate fill");
     return execution.simulateFill(userId(principal), id);
   }
 

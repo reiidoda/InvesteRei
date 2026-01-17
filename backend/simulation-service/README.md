@@ -1,10 +1,10 @@
-# Simulation Service (Placeholder)
+# Simulation Service
 
-This service is intentionally not wired in `docker-compose.yml` yet.
+Minimal backtest service (async + persisted). The API supports simple BUY_AND_HOLD and DCA runs.
 
-In production:
-- Accept strategy definitions (DCA, momentum, mean reversion, etc.)
-- Run backtests on historical datasets
-- Persist results + risk metrics
-- Use async jobs (Spring Batch / Quartz / Redis streams)
-
+Production upgrades:
+- Accept richer strategy definitions (momentum, mean reversion, factor tilts).
+- Run backtests on historical datasets (market data store).
+- Persist results + risk metrics with auditability.
+- Use async jobs (Spring Batch / Quartz / Redis streams).
+- Enforce per-user quotas + tenant isolation (baseline limits now available).

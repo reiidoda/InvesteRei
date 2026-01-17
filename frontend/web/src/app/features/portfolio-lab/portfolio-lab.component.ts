@@ -10,7 +10,7 @@ import { API_BASE, OptimizeRequest, OptimizeResponse } from '../../core/api';
     <div class="card">
       <h2 style="margin-top:0;">Portfolio Lab</h2>
       <p class="small">
-        Enter expected returns (mu) and covariance matrix (cov). This returns a **simulation suggestion**, not advice.
+        Enter expected returns (mu) and covariance matrix (cov). This returns an optimization proposal output, not advice.
         Requires login (Bearer token).
       </p>
 

@@ -1,0 +1,23 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/alphamath}
+    username: ${DATABASE_USER:alphamath}
+    password: ${DATABASE_PASSWORD:alphamath}
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+alphamath:
+  jwt:
+    secret: ${JWT_SECRET:dev_change_me}
+  platform:
+    feeBps: ${PLATFORM_FEE_BPS:50}

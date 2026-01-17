@@ -19,13 +19,25 @@ class _PortfolioLabScreenState extends State<PortfolioLabScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('InvesteRei — Portfolio Lab'),
-        actions: [IconButton(icon: const Icon(Icons.login), onPressed: () => Navigator.pushNamed(context, '/login'))],
+        actions: [
+          IconButton(icon: const Icon(Icons.auto_graph), onPressed: () => Navigator.pushNamed(context, '/auto-invest')),
+          IconButton(icon: const Icon(Icons.show_chart), onPressed: () => Navigator.pushNamed(context, '/market-data')),
+          IconButton(icon: const Icon(Icons.swap_horiz), onPressed: () => Navigator.pushNamed(context, '/manual-trade')),
+          IconButton(icon: const Icon(Icons.bookmark_border), onPressed: () => Navigator.pushNamed(context, '/watchlists')),
+          IconButton(icon: const Icon(Icons.notifications_active), onPressed: () => Navigator.pushNamed(context, '/alerts')),
+          IconButton(icon: const Icon(Icons.receipt_long), onPressed: () => Navigator.pushNamed(context, '/statements')),
+          IconButton(icon: const Icon(Icons.article_outlined), onPressed: () => Navigator.pushNamed(context, '/research')),
+          IconButton(icon: const Icon(Icons.timeline), onPressed: () => Navigator.pushNamed(context, '/simulation')),
+          IconButton(icon: const Icon(Icons.psychology), onPressed: () => Navigator.pushNamed(context, '/ai')),
+          IconButton(icon: const Icon(Icons.history), onPressed: () => Navigator.pushNamed(context, '/audit')),
+          IconButton(icon: const Icon(Icons.login), onPressed: () => Navigator.pushNamed(context, '/login')),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
-            const Text('Simulation-first optimizer (educational).', style: TextStyle(color: Colors.black54)),
+            const Text('Portfolio optimizer with risk constraints.', style: TextStyle(color: Colors.black54)),
             const SizedBox(height: 12),
             TextField(controller: muCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'mu (JSON array)')),
             const SizedBox(height: 8),

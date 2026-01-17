@@ -1,63 +1,519 @@
-# InvesteRei Enterprise (Monorepo)
+# InvesteRei — AI Automated Investing, with Your Approval
 
-A Big-Tech style, **simulation-first** platform that helps users make smarter money decisions with math + AI — without giving buy/sell recommendations.
+InvesteRei is an AI-powered investing autopilot that builds and manages a portfolio for you, then asks for a simple **Approve / Decline** before any trade happens.
 
-## What this is (and what it isn't)
-- ✅ Education, scenario modeling, backtesting/paper trading, portfolio optimization under constraints, risk analytics.
-- ✅ AI explanations: *why* the numbers look the way they do.
-- ❌ No personalized “buy X now” financial advice.
+## How it works (simple)
+1. Connect your broker and choose your risk level (conservative to aggressive).
+2. InvesteRei continuously analyzes markets, your portfolio, and risk limits to create a **Trade Proposal**.
+3. You get a clear summary: what will be bought/sold, why, expected impact, and worst-case risk. Then you tap **Approve** or **Decline**.
+
+That's it. The strategy runs automatically, but you stay in control.
+
+## Why it feels better than traditional investing apps
+- **Human-in-the-loop safety:** nothing executes without your approval.
+- **Explainable AI:** every proposal includes plain-language reasons, not black-box guesses.
+- **Risk-first automation:** built-in controls (max drawdown targets, position limits, volatility controls, stop rules).
+- **Always aligned to you:** goals + time horizon + constraints shape every decision.
+- **Institutional-grade discipline:** rebalancing, diversification, and continuous monitoring.
+- **Total transparency:** costs, performance, and trade history are easy to understand.
+
+## What you see in every proposal
+- Proposed trades (buy/sell) and portfolio change
+- "Why now?" explanation (signals + risk + portfolio drift)
+- Estimated risk impact (volatility, VaR/CVaR style risk, downside risk)
+- Scenario preview (best/base/worst case)
+- Safety checks passed (limits, liquidity, concentration, rules)
+
+## Built for real-world execution
+InvesteRei is designed to connect to real brokers, track live positions, and reconcile account data so the app always matches what actually happened in your brokerage.
+
+InvesteRei: automated investing that behaves like a professional system — but is as easy as pressing Approve.
 
 ## Architecture (Enterprise)
 - **Gateway**: Spring Cloud Gateway (routing, JWT validation, rate limiting placeholders)
 - **Auth Service**: User registration/login, JWT issuance
-- **Portfolio Service**: Optimization + risk metrics APIs (mean-variance + constraints; MVP uses robust heuristics)
-- **Simulation Service (placeholder)**: Backtesting jobs + results (skeleton)
+- **Portfolio Service**: Optimization + risk metrics, trade proposals/intents, auto-invest orchestration, audit logs
+- **Simulation Service**: Backtesting jobs + results (async + persisted, versioned configs)
+- **AI Service**: Return + risk forecasting, baseline evaluation, model registry
+- **Market Data**: Ingestion + query APIs (stored in Postgres via portfolio-service, cached quotes via Redis, CSV + HTTP providers + scheduled backfills)
+- **Reference Data**: Global instrument master, exchanges, currencies, FX rates
+- **Broker Integrations**: Connections, routing, positions, orders, multi-asset order legs
+- **Notifications**: In-app notifications with read state
 - **Postgres**: Primary persistence
-- **Redis**: Optional cache/job queue
+- **Redis**: Quote cache + simulation job queue
 
-Frontend:
-- **Angular 17** (standalone components) with an enterprise feature-based structure
+Broker parity matrix: `docs/broker-parity.md`.
 
----
+## Web app (Angular 17)
+- Login + token handling
+- Portfolio Lab: optimizer inputs, constraints, and output weights
+- Risk Lab: advanced risk metrics (Sharpe, max drawdown, VaR, CVaR)
+- Market Data: ingest prices, cached latest quotes, provider history, CSV/HTTP backfills, stored returns
+- Auto-Invest: create plans, view run history, review notifications
+- Notification settings: preferences, destinations, delivery history
+- Watchlists: multi-asset lists with AI risk insights
+- Alerts: rule-based alerts with status + trigger workflow
+- Statements: ledger entries, statement summaries, tax lots, corporate actions, reconciliation
+- Research: curated notes with AI summaries and scores
+- Simulation Lab: submit backtests and inspect job status + curves
+- AI Forecast: return/risk forecasts, walk-forward evaluation, model registry
+- Manual Trading Desk: broker accounts, order review (AI + compliance), order placement
 
-## Quick start (Docker)
-1) Install Docker + Docker Compose.
-2) From repo root:
+## Mobile app (Flutter)
+- Login + API base selection
+- Portfolio Lab hub with quick navigation
+- Market Data: cached quotes + provider history + CSV/HTTP backfills
+- Auto-Invest: plan creation, run history, notifications
+- Notification preferences + delivery history
+- Watchlists + AI insights
+- Alerts + trigger workflow
+- Statements + tax lots + corporate actions + reconciliation
+- Research notes + AI refresh
+- Simulation: submit backtests, poll job status
+- AI: return/risk forecasts, evaluation, model registry
+- Manual trading: broker accounts, AI order review, order placement
+- Audit log viewer (approvals and execution events)
+- See `mobile/README.md` for run steps
+
+## Current state (implemented)
+- One-command local stack with Docker Compose + Makefile
+- Persistent domain tables: accounts, positions, proposals, orders, intents, fills, audit events
+- Auto-invest scheduler with idempotent runs and notifications
+- Market data ingestion endpoints + Redis quote cache + CSV/HTTP providers + scheduled backfills + historical queries
+- Market data licensing + entitlement enforcement toggle (GLOBAL / SYMBOL / EXCHANGE / ASSET_CLASS / REGION)
+- Reference data + exchange calendars + broker integration scaffolding (connections, positions, orders, previews, cancel/refresh)
+- Manual broker order review with AI/compliance guidance + cash/position impact
+- Funding rails: sources, deposits, withdrawals, and broker transfers (stub providers)
+- Watchlists + alerts with AI enrichment hooks
+- Statements, ledger ingestion, tax lots, corporate actions, reconciliation, research notes + AI summaries
+- Notification preferences, destinations, and delivery audit trail with retry/backoff queue + bounce handling (SMTP + webhook providers available; SMS/push stub)
+- Simulation queue via Redis streams, versioned strategy configs, equity/drawdown curves
+- Simulation worker scaling with concurrency caps, retries, capacity reporting, and per-user quotas
+- AI risk-first endpoints, walk-forward evaluation, and model registry
+- Security scaffolding: roles in JWT, MFA enrollment stubs, audit exports, request tracing headers, MFA/RBAC enforcement toggles
+
+## Quick start (Makefile)
+1. Install Docker + Docker Compose.
+2. From repo root:
 
 ```bash
-docker compose up --build
+make up
 ```
+
+Common commands:
+
+```bash
+make logs
+make down
+make test
+```
+
+If you prefer not to use Make, run `docker compose up --build`.
 
 - Web: http://localhost:4200
 - Gateway: http://localhost:8080
 - Auth: http://localhost:8081 (internal)
 - Portfolio: http://localhost:8082 (internal)
+- Simulation: http://localhost:8083 (internal)
+- AI: http://localhost:8090 (internal, proxied via Gateway at `/api/v1/ai/**`)
 
 ---
+
+## Smoke test checklist
+Set a base URL once:
+
+```bash
+export API_BASE="http://localhost:8080"
+```
+
+1. Register
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"dev@example.com","password":"changeme123"}'
+```
+
+2. Login (capture token)
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"dev@example.com","password":"changeme123"}'
+```
+
+Set `TOKEN` to the `token` in the response.
+
+3. Call `/api/v1/trade/account`
+
+```bash
+curl -s "$API_BASE/api/v1/trade/account" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+4. Link a broker account (required for execution intent)
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/execution/accounts/link" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"providerId":"interactive_brokers","region":"US","assetClasses":["EQUITY"]}'
+```
+
+5. Create proposal
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/trade/proposals" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["AAPL","MSFT"],"mu":[0.08,0.06],"cov":[[0.10,0.02],[0.02,0.08]],"prices":{"AAPL":180,"MSFT":320},"riskAversion":6,"maxWeight":0.6,"minWeight":0.0}'
+```
+
+6. Approve
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/trade/proposals/{proposalId}/decision" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"APPROVE"}'
+```
+
+7. Create intent
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/execution/intents/{proposalId}" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+8. Simulate fill
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/execution/intents/{intentId}/simulate-fill" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## CSV market data backfill
+Drop CSV files into `data/market/` (mounted into the portfolio container at `/data/market`) and trigger a backfill to load them into Postgres.
+
+File format (one file per symbol, e.g. `AAPL.csv`):
+
+```
+timestamp,open,high,low,close,volume
+2024-01-02,183.10,185.50,182.40,184.90,102340000
+```
+
+Trigger a backfill:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/market-data/backfill" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["AAPL","MSFT"],"start":"2024-01-01","end":"2024-12-31","granularity":"DAY","limit":0,"source":"csv"}'
+```
+
+Enable scheduled backfills:
+
+```bash
+export MARKETDATA_BACKFILL_ENABLED=true
+export MARKETDATA_BACKFILL_SYMBOLS=AAPL,MSFT
+export MARKETDATA_BACKFILL_DELAY_MS=3600000
+```
+
+---
+
+## HTTP market data provider (commercial feed scaffold)
+Enable the HTTP provider and point it to a market data gateway or vendor adapter. The provider expects JSON responses with `quotes` or `prices` arrays, each containing `symbol`, `timestamp`, and price fields. API keys live in env vars only.
+
+Example config:
+
+```bash
+export MARKETDATA_HTTP_ENABLED=true
+export MARKETDATA_HTTP_BASE_URL=https://market-data.example.com/api
+export MARKETDATA_HTTP_LATEST_QUOTES_PATH=/quotes/latest
+export MARKETDATA_HTTP_HISTORY_PATH=/history
+export MARKETDATA_HTTP_API_KEY_HEADER=X-API-KEY
+export MARKETDATA_HTTP_API_KEY=your_key_here
+```
+
+Backfill using the HTTP source:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/market-data/backfill" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["AAPL","MSFT"],"start":"2024-01-01","end":"2024-12-31","granularity":"DAY","limit":0,"source":"http"}'
+```
+
+---
+
+## Market data licensing + entitlements
+Enable entitlement enforcement:
+
+```bash
+export MARKETDATA_ENTITLEMENTS_ENABLED=true
+```
+
+Register a market data license:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/market-data/licenses" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"starter_csv","plan":"internal","status":"ACTIVE","assetClasses":["EQUITY"],"regions":["US"]}'
+```
+
+Grant entitlements (GLOBAL/SYMBOL/EXCHANGE/ASSET_CLASS/REGION):
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/market-data/entitlements" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"entitlementType":"SYMBOL","entitlementValue":"AAPL","status":"ACTIVE","source":"starter_csv"}'
+```
+
+---
+
+## Notification preferences + destinations
+Create a destination and enable a delivery channel:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/notifications/destinations" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"EMAIL","destination":"alerts@example.com","label":"Primary"}'
+```
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/notifications/destinations/{id}/verify" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/notifications/preferences" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"EMAIL","enabled":true,"types":["AUTO_INVEST_PROPOSAL","ALERT_TRIGGERED"],"quietStartHour":22,"quietEndHour":7,"timezone":"UTC"}'
+```
+
+---
+
+## Notification providers (SMTP + Webhook)
+Enable SMTP delivery:
+
+```bash
+export NOTIFICATION_EMAIL_PROVIDER=smtp-email
+export NOTIFICATION_SMTP_ENABLED=true
+export NOTIFICATION_SMTP_HOST=smtp.example.com
+export NOTIFICATION_SMTP_PORT=587
+export NOTIFICATION_SMTP_USERNAME=your_user
+export NOTIFICATION_SMTP_PASSWORD=your_password
+export NOTIFICATION_SMTP_FROM_ADDRESS=noreply@investerei.com
+export NOTIFICATION_SMTP_FROM_NAME="InvesteRei"
+```
+
+Enable webhook delivery:
+
+```bash
+export NOTIFICATION_WEBHOOK_PROVIDER=http-webhook
+export NOTIFICATION_WEBHOOK_HTTP_ENABLED=true
+export NOTIFICATION_WEBHOOK_SIGNATURE_SECRET=optional_shared_secret
+```
+
+Webhook payload is JSON with `id`, `type`, `title`, `body`, `entityType`, `entityId`, `metadata`, `userId`, and `createdAt`.
+
+---
+
+## Security scaffolds (MFA + RBAC)
+- JWT now includes `roles` and `mfa` claims; gateway forwards `X-User-Roles` and `X-User-Mfa`.
+- Gateway injects `X-Request-Id` and `X-Trace-Id` for log correlation.
+- MFA endpoints are stubbed (verify code `000000`); enforcement is optional via env flags.
+- Audit export (`/api/v1/audit/events/export`) requires `ADMIN` or `AUDITOR` role.
+- Optional enforcement flags:
+  - `SECURITY_MFA_ENFORCE=true` to require MFA on funding, broker orders, execution intents, and trade approvals.
+  - `SECURITY_RBAC_ENFORCE=true` to require `ADMIN`/`DATA_ADMIN` on market-data and reference-data writes.
+- Admin role management: `POST /api/v1/auth/users/{id}/roles` (requires `ADMIN` token).
+- Bootstrap admins: set `AUTH_BOOTSTRAP_ADMINS=admin@example.com` to grant `ADMIN` on registration/login.
+
+---
+
+## Broker statement CSV import
+Paste or upload a broker CSV into ledger entries and optionally reconcile positions/tax lots:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/statements/import" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"accountId":"acct-001","source":"broker_csv","csv":"date,action,symbol,quantity,price,amount,currency\n2024-01-05,BUY,AAPL,10,185.80,1858.00,USD","delimiter":",","hasHeader":true,"defaultCurrency":"USD","applyPositions":true,"rebuildTaxLots":true,"lotMethod":"FIFO"}'
+```
 
 ## API overview (via Gateway)
+
+### Auth
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
-- `POST /api/v1/portfolio/optimize` (requires Bearer token)
+- `GET /api/v1/auth/profile`
+- `POST /api/v1/auth/mfa/enroll`
+- `POST /api/v1/auth/mfa/verify`
+- `POST /api/v1/auth/mfa/disable`
+- `POST /api/v1/auth/users/{id}/roles`
 
----
+### Portfolio + Risk
+- `POST /api/v1/portfolio/optimize`
+- `POST /api/v1/risk/metrics/advanced`
 
-## Next steps
-- Replace heuristic optimizer with quadratic programming (e.g., ojAlgo / OR-Tools / custom solver).
-- Add market-data ingestion and historical dataset store.
-- Implement simulation jobs (Celery-like queue pattern in Java with Spring Batch or Quartz).
-- Add “AI Coach” service (RAG over your docs + user simulations), with strict safety guardrails.
+### Trade + Execution (paper)
+- `GET /api/v1/trade/account`
+- `POST /api/v1/trade/account/seed`
+- `POST /api/v1/trade/proposals`
+- `GET /api/v1/trade/proposals/{id}`
+- `POST /api/v1/trade/proposals/{id}/decision`
+- `GET /api/v1/execution/providers`
+- `GET /api/v1/execution/accounts`
+- `POST /api/v1/execution/accounts/link`
+- `GET /api/v1/execution/intents`
+- `GET /api/v1/execution/intents/{id}`
+- `POST /api/v1/execution/intents/{proposalId}`
+- `POST /api/v1/execution/intents/{intentId}/simulate-fill`
 
+### Funding + Compliance
+- `GET /api/v1/funding/providers`
+- `GET /api/v1/funding/sources`
+- `POST /api/v1/funding/sources`
+- `POST /api/v1/funding/sources/{id}/verify`
+- `POST /api/v1/funding/deposits`
+- `GET /api/v1/funding/deposits`
+- `POST /api/v1/funding/withdrawals`
+- `GET /api/v1/funding/withdrawals`
+- `POST /api/v1/funding/transfers`
+- `GET /api/v1/funding/transfers`
+- `GET /api/v1/compliance/profile`
+- `POST /api/v1/compliance/profile`
+
+### Market data
+- `POST /api/v1/market-data/prices`
+- `GET /api/v1/market-data/prices`
+- `GET /api/v1/market-data/symbols`
+- `GET /api/v1/market-data/providers`
+- `GET /api/v1/market-data/licenses`
+- `POST /api/v1/market-data/licenses`
+- `GET /api/v1/market-data/entitlements`
+- `POST /api/v1/market-data/entitlements`
+- `GET /api/v1/market-data/quotes/latest`
+- `GET /api/v1/market-data/history`
+- `GET /api/v1/market-data/returns`
+- `POST /api/v1/market-data/backfill`
+
+### Reference data
+- `POST /api/v1/reference/instruments`
+- `GET /api/v1/reference/instruments`
+- `GET /api/v1/reference/instruments/{id}`
+- `POST /api/v1/reference/exchanges`
+- `GET /api/v1/reference/exchanges`
+- `POST /api/v1/reference/exchanges/{code}/calendar`
+- `GET /api/v1/reference/exchanges/{code}/calendar`
+- `GET /api/v1/reference/exchanges/{code}/calendar/next-open`
+- `POST /api/v1/reference/currencies`
+- `GET /api/v1/reference/currencies`
+- `POST /api/v1/reference/fx-rates`
+- `GET /api/v1/reference/fx-rates`
+
+### Brokers
+- `GET /api/v1/brokers`
+- `POST /api/v1/brokers/{brokerId}/connections`
+- `GET /api/v1/brokers/connections`
+- `POST /api/v1/brokers/connections/{id}/sync`
+- `GET /api/v1/brokers/accounts`
+- `GET /api/v1/brokers/accounts/{id}/positions`
+- `GET /api/v1/brokers/accounts/{id}/orders`
+- `POST /api/v1/brokers/accounts/{id}/orders`
+- `POST /api/v1/brokers/accounts/{id}/orders/preview`
+- `POST /api/v1/brokers/accounts/{id}/orders/review`
+- `POST /api/v1/brokers/accounts/{id}/orders/{orderId}/refresh`
+- `POST /api/v1/brokers/accounts/{id}/orders/{orderId}/cancel`
+- `POST /api/v1/brokers/recommend`
+
+### Watchlists + Alerts
+- `POST /api/v1/watchlists`
+- `GET /api/v1/watchlists`
+- `POST /api/v1/watchlists/{id}`
+- `DELETE /api/v1/watchlists/{id}`
+- `GET /api/v1/watchlists/{id}/items`
+- `POST /api/v1/watchlists/{id}/items`
+- `DELETE /api/v1/watchlists/{id}/items/{itemId}`
+- `POST /api/v1/watchlists/{id}/insights`
+- `POST /api/v1/alerts`
+- `GET /api/v1/alerts`
+- `POST /api/v1/alerts/{id}/status`
+- `POST /api/v1/alerts/{id}/trigger`
+
+### Statements + Research
+- `POST /api/v1/statements/ledger`
+- `GET /api/v1/statements/ledger`
+- `POST /api/v1/statements/tax-lots`
+- `GET /api/v1/statements/tax-lots`
+- `POST /api/v1/statements/corporate-actions`
+- `GET /api/v1/statements/corporate-actions`
+- `POST /api/v1/statements`
+- `GET /api/v1/statements`
+- `GET /api/v1/statements/summary`
+- `POST /api/v1/statements/reconcile`
+- `POST /api/v1/statements/import`
+- `POST /api/v1/research/notes`
+- `GET /api/v1/research/notes`
+- `POST /api/v1/research/notes/{id}/ai`
+- `POST /api/v1/research/notes/ai`
+
+### Simulation
+- `POST /api/v1/simulation/backtest`
+- `GET /api/v1/simulation/backtest/{id}`
+- `GET /api/v1/simulation/capacity`
+- `GET /api/v1/simulation/quota`
+
+### AI
+- `POST /api/v1/ai/predict`
+- `POST /api/v1/ai/risk`
+- `POST /api/v1/ai/evaluate`
+- `POST /api/v1/ai/models`
+- `GET /api/v1/ai/models`
+- `GET /api/v1/ai/models/{id}`
+- `POST /api/v1/ai/models/{id}/status`
+
+### Auto-invest + Notifications + Audit
+- `POST /api/v1/auto-invest/plans`
+- `GET /api/v1/auto-invest/plans`
+- `POST /api/v1/auto-invest/plans/{id}/status`
+- `POST /api/v1/auto-invest/plans/{id}/run`
+- `GET /api/v1/auto-invest/plans/{id}/runs`
+- `GET /api/v1/notifications`
+- `POST /api/v1/notifications/{id}/read`
+- `GET /api/v1/notifications/preferences`
+- `POST /api/v1/notifications/preferences`
+- `GET /api/v1/notifications/destinations`
+- `POST /api/v1/notifications/destinations`
+- `POST /api/v1/notifications/destinations/{id}/verify`
+- `POST /api/v1/notifications/destinations/{id}/disable`
+- `GET /api/v1/notifications/deliveries`
+- `GET /api/v1/audit/events`
+- `GET /api/v1/audit/events/export`
+
+## Remaining work (enterprise hardening)
+- Commercial market data integrations and vendor adapters (current: CSV + HTTP provider scaffold + manual POST ingestion)
+- Real broker execution and funding rails (current: stub adapters + simulated fills)
+- Production notification providers (SMTP + webhook available; SMS/push pending)
+- Broker statement ingest + reconciliation against custodial feeds (current: CSV import + ledger-based reconciliation)
+- Global data licensing catalogs + exchange calendar coverage per venue (current: manual calendar)
+- Simulation autoscaling for large backtest volumes (tenant quotas enforced; autoscaling pending)
+- Security/ops hardening: MFA enforcement + RBAC toggles added; metrics/tracing and compliance reporting pending
 
 ## Math Engine Coverage
-This repo includes a **broad, extensible math engine**: mean–variance optimization, risk parity, Kelly (approx), Black–Litterman (posterior), covariance estimators (sample/EWMA/shrinkage), and advanced risk metrics (Sharpe/Sortino/Drawdown/VaR/CVaR/Cornish–Fisher, etc.).
+This repo includes a broad, extensible math engine: mean-variance optimization, risk parity, Kelly (approx), Black-Litterman (posterior), covariance estimators (sample/EWMA/shrinkage), and advanced risk metrics (Sharpe/Sortino/Drawdown/VaR/CVaR/Cornish-Fisher, etc.).
 
 > Note: mathematics for investing is effectively unbounded. The project is structured so new models/formulas can be added as modules without breaking the API.
 
-
 ## Living Library (Everything Ever Published)
-A static repository can never contain *all* formulas ever published. InvesteRei includes a **Living Math Library** (`math-library/`) with a registry + plugin interfaces so the system can continuously expand.
-
+A static repository can never contain all formulas ever published. InvesteRei includes a Living Math Library (`math-library/`) with a registry + plugin interfaces so the system can continuously expand.
 
 ## Continuous Ingestion
 A scheduled GitHub Action ingests new arXiv paper metadata into `math-library/papers/inbox/` and opens a PR daily. See `math-library/ingestion/README.md`.

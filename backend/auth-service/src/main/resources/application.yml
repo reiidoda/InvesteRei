@@ -26,3 +26,5 @@ alphamath:
     secret: ${JWT_SECRET:dev_change_me}
     issuer: alphamath
     ttlMinutes: 240
+  auth:
+    bootstrapAdmins: ${AUTH_BOOTSTRAP_ADMINS:}

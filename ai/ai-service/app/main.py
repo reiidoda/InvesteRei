@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import numpy as np
 
-app = FastAPI(title="InvesteRei AI Service", version="0.1.0")
+app = FastAPI(title="InvesteRei AI Service", version="0.2.0")
+
+MODEL_VERSION = "baseline-v1"
 
 class PredictRequest(BaseModel):
     returns: List[float] = Field(min_length=30, max_length=50000)
@@ -14,6 +16,49 @@ class PredictResponse(BaseModel):
     volatility: float
     p_up: float
     confidence: float
+    model_version: str
+    training_window_start: Optional[str] = None
+    training_window_end: Optional[str] = None
+    disclaimer: str
+
+class RiskRequest(BaseModel):
+    returns: List[float] = Field(min_length=30, max_length=50000)
+    horizon: int = Field(default=1, ge=1, le=30)
+
+class RiskResponse(BaseModel):
+    volatility: float
+    max_drawdown: float
+    confidence: float
+    regime: str
+    model_version: str
+    training_window_start: Optional[str] = None
+    training_window_end: Optional[str] = None
+    disclaimer: str
+
+class EvaluateRequest(BaseModel):
+    returns: List[float] = Field(min_length=60, max_length=200000)
+    horizon: int = Field(default=1, ge=1, le=30)
+    window: int = Field(default=60, ge=30, le=2000)
+
+class EvalModelMetrics(BaseModel):
+    model: str
+    mae: float
+    mse: float
+    count: int
+
+class EvalRegimeMetrics(BaseModel):
+    regime: str
+    model: str
+    mae: float
+    mse: float
+    count: int
+
+class EvaluateResponse(BaseModel):
+    horizon: int
+    window: int
+    models: List[EvalModelMetrics]
+    regimes: List[EvalRegimeMetrics]
+    model_version: str
     disclaimer: str
 
 @app.post("/v1/predict", response_model=PredictResponse)
@@ -34,5 +79,105 @@ def predict(req: PredictRequest):
         volatility=vol * np.sqrt(req.horizon),
         p_up=p_up,
         confidence=conf,
+        model_version=MODEL_VERSION,
+        training_window_start=None,
+        training_window_end=None,
         disclaimer="Educational forecast only. Not financial advice."
+    )
+
+@app.post("/v1/risk", response_model=RiskResponse)
+def risk(req: RiskRequest):
+    r = np.array(req.returns, dtype=float)
+    vol = float(np.std(r, ddof=1))
+    eq = 1.0
+    peak = 1.0
+    max_dd = 0.0
+    for x in r:
+        eq *= (1.0 + x)
+        if eq > peak:
+            peak = eq
+        dd = (peak - eq) / peak if peak > 0 else 0.0
+        if dd > max_dd:
+            max_dd = dd
+
+    sample = len(r)
+    conf = float(min(0.9, 0.4 + np.sqrt(sample) / 100.0))
+    regime = "HIGH_VOL" if vol > 0.02 else "LOW_VOL"
+
+    return RiskResponse(
+        volatility=vol * np.sqrt(req.horizon),
+        max_drawdown=float(max_dd),
+        confidence=conf,
+        regime=regime,
+        model_version=MODEL_VERSION,
+        training_window_start=None,
+        training_window_end=None,
+        disclaimer="Educational risk forecast only. Not financial advice."
+    )
+
+@app.post("/v1/evaluate", response_model=EvaluateResponse)
+def evaluate(req: EvaluateRequest):
+    r = np.array(req.returns, dtype=float)
+    window = min(req.window, len(r) - req.horizon)
+    if window < 30:
+        raise ValueError("window too small for evaluation")
+
+    preds = {"mean": [], "momentum": []}
+    targets = []
+    vols = []
+
+    for i in range(window, len(r) - req.horizon + 1):
+        train = r[i - window:i]
+        target = float(np.mean(r[i:i + req.horizon]))
+        vol = float(np.std(train, ddof=1))
+        vols.append(vol)
+        targets.append(target)
+
+        preds["mean"].append(float(np.mean(train)))
+        k = min(5, len(train))
+        preds["momentum"].append(float(np.mean(train[-k:])))
+
+    metrics = []
+    for model, p in preds.items():
+        err = np.array(p) - np.array(targets)
+        mae = float(np.mean(np.abs(err)))
+        mse = float(np.mean(err ** 2))
+        metrics.append(EvalModelMetrics(model=model, mae=mae, mse=mse, count=len(p)))
+
+    regimes = []
+    if vols:
+        median_vol = float(np.median(vols))
+        for model, p in preds.items():
+            low_err = []
+            high_err = []
+            for idx, pred in enumerate(p):
+                err = pred - targets[idx]
+                if vols[idx] <= median_vol:
+                    low_err.append(err)
+                else:
+                    high_err.append(err)
+            if low_err:
+                low_err = np.array(low_err)
+                regimes.append(EvalRegimeMetrics(
+                    regime="LOW_VOL", model=model,
+                    mae=float(np.mean(np.abs(low_err))),
+                    mse=float(np.mean(low_err ** 2)),
+                    count=len(low_err)
+                ))
+            if high_err:
+                high_err = np.array(high_err)
+                regimes.append(EvalRegimeMetrics(
+                    regime="HIGH_VOL", model=model,
+                    mae=float(np.mean(np.abs(high_err))),
+                    mse=float(np.mean(high_err ** 2)),
+                    count=len(high_err)
+                ))
+
+    return EvaluateResponse(
+        horizon=req.horizon,
+        window=window,
+        models=metrics,
+        regimes=regimes,
+        model_version=MODEL_VERSION,
+        disclaimer="Evaluation is educational. Do not use for live trading."
     )

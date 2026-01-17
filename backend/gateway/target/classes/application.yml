@@ -1,0 +1,59 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+alphamath:
+  jwt:
+    secret: ${JWT_SECRET:dev_change_me}
+
+services:
+  auth: ${AUTH_URL:http://localhost:8081}
+  portfolio: ${PORTFOLIO_URL:http://localhost:8082}
+
+spring:
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      routes:
+        - id: auth
+          uri: ${services.auth}
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: portfolio
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/portfolio/**
+        - id: risk
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/risk/**
+        - id: math
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/math/**
+        - id: registry
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/registry/**
+        - id: trade
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/trade/**
+        - id: funding
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/funding/**
+        - id: compliance
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/compliance/**
+        - id: execution
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/execution/**

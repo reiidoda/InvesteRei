@@ -1,8 +1,8 @@
 package com.alphamath.portfolio.web;
 
-import com.alphamath.portfolio.compliance.ComplianceProfile;
-import com.alphamath.portfolio.compliance.ComplianceService;
-import com.alphamath.portfolio.compliance.ComplianceUpdateRequest;
+import com.alphamath.portfolio.domain.compliance.ComplianceProfile;
+import com.alphamath.portfolio.application.compliance.ComplianceService;
+import com.alphamath.portfolio.domain.compliance.ComplianceUpdateRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 

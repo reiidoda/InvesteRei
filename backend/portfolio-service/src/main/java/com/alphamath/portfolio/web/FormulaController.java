@@ -37,7 +37,7 @@ public class FormulaController {
 
     out.put("notes", List.of(
         "This is a growing math-engine registry. The code is modular so you can add more models without breaking the API.",
-        "All outputs are educational and do not constitute financial advice."
+        "All outputs are decision-support analytics and do not constitute financial advice."
     ));
 
     out.put("livingRegistryEndpoint", "/api/v1/registry/formulas");

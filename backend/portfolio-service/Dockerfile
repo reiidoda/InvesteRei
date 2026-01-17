@@ -1,12 +1,11 @@
-FROM eclipse-temurin:21-jdk as build
+FROM maven:3.9-eclipse-temurin-21 as build
 WORKDIR /workspace
-COPY . .
-RUN docker run --rm -v "$(pwd)":/ws -w /ws maven:3.9-eclipse-temurin-21 mvn -q -DskipTests package
-# If Docker-in-Docker isn't allowed, build with:
-#   docker run --rm -v "$(pwd)":/ws -w /ws maven:3.9-eclipse-temurin-21 mvn -q -DskipTests package
+COPY pom.xml .
+COPY src ./src
+RUN mvn -q -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY target/portfolio-service.jar /app/app.jar
+COPY --from=build /workspace/target/portfolio-service.jar /app/app.jar
 EXPOSE 8082
 ENTRYPOINT ["java","-jar","/app/app.jar"]

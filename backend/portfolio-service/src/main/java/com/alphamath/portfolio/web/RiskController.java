@@ -117,7 +117,7 @@ public class RiskController {
         mean, std, sharpe, sortino, maxDd, calmar,
         varHist, cvarHist, varNorm, cvarNorm, varCF,
         downsideDev, omega, skew, exKurt,
-        "Risk metrics are educational; not financial advice."
+        "Risk metrics are decision-support analytics; not financial advice."
     );
   }
 
