@@ -255,7 +255,7 @@ public class ReconciliationService {
       });
       if (TaxLotStatus.OPEN.equals(lot.getStatus())) {
         entry.setOpenLots(entry.getOpenLots() + 1);
-        entry.setOpenQuantity(entry.getOpenQuantity() + (lot.getQuantity() == null ? 0.0 : lot.getQuantity()));
+        entry.setOpenQuantity(entry.getOpenQuantity() + lot.getQuantity());
         entry.setOpenCostBasis(entry.getOpenCostBasis() + (lot.getCostBasis() == null ? 0.0 : lot.getCostBasis()));
       } else {
         entry.setClosedLots(entry.getClosedLots() + 1);
@@ -264,15 +264,8 @@ public class ReconciliationService {
     return new ArrayList<>(summary.values());
   }
 
-  private LedgerEntryType parseEntryType(String raw) {
-    if (raw == null || raw.isBlank()) {
-      return LedgerEntryType.ADJUSTMENT;
-    }
-    try {
-      return LedgerEntryType.valueOf(raw.trim().toUpperCase(Locale.US));
-    } catch (IllegalArgumentException e) {
-      return LedgerEntryType.ADJUSTMENT;
-    }
+  private LedgerEntryType parseEntryType(LedgerEntryType raw) {
+    return raw == null ? LedgerEntryType.ADJUSTMENT : raw;
   }
 
   private String normalizeSymbol(String symbol) {

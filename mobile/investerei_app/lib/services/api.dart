@@ -3,31 +3,60 @@ import 'package:http/http.dart' as http;
 import '../config.dart';
 import 'token_store.dart';
 
+class AuthResult {
+  final String? token;
+  final bool mfaRequired;
+  final String? mfaToken;
+  final String? mfaTokenExpiresAt;
+
+  AuthResult({
+    this.token,
+    required this.mfaRequired,
+    this.mfaToken,
+    this.mfaTokenExpiresAt,
+  });
+
+  factory AuthResult.fromJson(Map<String, dynamic> json) {
+    return AuthResult(
+      token: json['token'] as String?,
+      mfaRequired: json['mfaRequired'] == true,
+      mfaToken: json['mfaToken'] as String?,
+      mfaTokenExpiresAt: json['mfaTokenExpiresAt'] as String?,
+    );
+  }
+}
+
 class Api {
   static Uri _u(String path) => Uri.parse('${Config.apiBase}$path');
 
-  static Future<void> register(String email, String password) async {
+  static Future<AuthResult> register(String email, String password) async {
     final res = await http.post(_u('/api/v1/auth/register'),
       headers: {'Content-Type':'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final j = jsonDecode(res.body);
-      await TokenStore.setToken(j['token']);
-      return;
+      final result = AuthResult.fromJson(j as Map<String, dynamic>);
+      if (result.token != null) {
+        await TokenStore.setToken(result.token!);
+      }
+      return result;
     }
     throw Exception(res.body);
   }
 
-  static Future<void> login(String email, String password) async {
+  static Future<AuthResult> login(String email, String password) async {
     final res = await http.post(_u('/api/v1/auth/login'),
       headers: {'Content-Type':'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
     if (res.statusCode >= 200 && res.statusCode < 300) {
       final j = jsonDecode(res.body);
-      await TokenStore.setToken(j['token']);
-      return;
+      final result = AuthResult.fromJson(j as Map<String, dynamic>);
+      if (result.token != null) {
+        await TokenStore.setToken(result.token!);
+      }
+      return result;
     }
     throw Exception(res.body);
   }
@@ -55,14 +84,26 @@ class Api {
     throw Exception(res.body);
   }
 
-  static Future<Map<String, dynamic>> verifyMfa(String code) async {
+  static Future<AuthResult> verifyMfa(String code, {String? mfaToken}) async {
     final token = await TokenStore.getToken();
+    final headers = <String, String>{'Content-Type':'application/json'};
+    if (mfaToken == null || mfaToken.isEmpty) {
+      headers['Authorization'] = 'Bearer ${token ?? ''}';
+    }
+    final body = <String, dynamic>{'code': code};
+    if (mfaToken != null && mfaToken.isNotEmpty) {
+      body['mfaToken'] = mfaToken;
+    }
     final res = await http.post(_u('/api/v1/auth/mfa/verify'),
-      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
-      body: jsonEncode({'code': code}),
+      headers: headers,
+      body: jsonEncode(body),
     );
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      return jsonDecode(res.body) as Map<String, dynamic>;
+      final result = AuthResult.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+      if (result.token != null) {
+        await TokenStore.setToken(result.token!);
+      }
+      return result;
     }
     throw Exception(res.body);
   }

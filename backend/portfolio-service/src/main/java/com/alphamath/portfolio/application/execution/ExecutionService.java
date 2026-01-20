@@ -1,17 +1,22 @@
 package com.alphamath.portfolio.application.execution;
 
 import com.alphamath.portfolio.application.audit.AuditService;
+import com.alphamath.portfolio.application.broker.BrokerIntegrationService;
 import com.alphamath.portfolio.domain.execution.AssetClass;
 import com.alphamath.portfolio.domain.execution.BrokerAccount;
 import com.alphamath.portfolio.domain.execution.BrokerAccountStatus;
 import com.alphamath.portfolio.domain.execution.BrokerLinkRequest;
 import com.alphamath.portfolio.domain.execution.BrokerProviderInfo;
+import com.alphamath.portfolio.domain.broker.BrokerConnection;
 import com.alphamath.portfolio.domain.execution.ExecutionIntent;
 import com.alphamath.portfolio.domain.execution.ExecutionOrder;
 import com.alphamath.portfolio.domain.execution.ExecutionStatus;
 import com.alphamath.portfolio.domain.execution.OrderType;
 import com.alphamath.portfolio.domain.execution.Region;
 import com.alphamath.portfolio.domain.trade.TradeOrder;
+import com.alphamath.portfolio.domain.broker.BrokerOrder;
+import com.alphamath.portfolio.domain.broker.BrokerOrderRequest;
+import com.alphamath.portfolio.domain.broker.BrokerOrderStatus;
 import com.alphamath.portfolio.domain.trade.TradeProposal;
 import com.alphamath.portfolio.infrastructure.persistence.BrokerAccountEntity;
 import com.alphamath.portfolio.infrastructure.persistence.BrokerAccountRepository;
@@ -39,15 +44,18 @@ public class ExecutionService {
   private final BrokerAccountRepository accounts;
   private final ExecutionIntentRepository intents;
   private final ExecutionFillRepository fills;
+  private final BrokerIntegrationService brokers;
   private final AuditService audit;
 
   public ExecutionService(BrokerAccountRepository accounts,
                           ExecutionIntentRepository intents,
                           ExecutionFillRepository fills,
+                          BrokerIntegrationService brokers,
                           AuditService audit) {
     this.accounts = accounts;
     this.intents = intents;
     this.fills = fills;
+    this.brokers = brokers;
     this.audit = audit;
   }
 
@@ -66,11 +74,13 @@ public class ExecutionService {
 
   public BrokerAccount linkAccount(String userId, BrokerLinkRequest req) {
     BrokerProviderInfo provider = findProvider(req.getProviderId());
+    BrokerConnection connection = brokers.connect(userId, provider.getId(), req.getLabel(), req.getMetadata());
     BrokerAccount acct = new BrokerAccount();
     acct.setId(UUID.randomUUID().toString());
     acct.setUserId(userId);
     acct.setProviderId(provider.getId());
     acct.setProviderName(provider.getDisplayName());
+    acct.setBrokerConnectionId(connection.getId());
     acct.setRegion(req.getRegion());
     acct.setAssetClasses(req.getAssetClasses().isEmpty() ? provider.getAssetClasses() : req.getAssetClasses());
     acct.setStatus(BrokerAccountStatus.LINKED);
@@ -117,7 +127,7 @@ public class ExecutionService {
     intent.setAssetClass(proposal.getAssetClass());
     intent.setStatus(ExecutionStatus.SUBMITTED);
     intent.setCreatedAt(Instant.now());
-    intent.setNote("Live execution scaffold. Orders submitted to " + acct.getProviderName() + ".");
+    intent.setNote("Execution intent created for " + acct.getProviderName() + ". Call submit to place orders.");
 
     List<ExecutionOrder> orders = new ArrayList<>();
     for (TradeOrder o : proposal.getOrders()) {
@@ -153,6 +163,77 @@ public class ExecutionService {
       out.add(toDto(entity));
     }
     return out;
+  }
+
+  public ExecutionIntent submitIntent(String userId, String id) {
+    ExecutionIntentEntity entity = intents.findById(id).orElse(null);
+    if (entity == null || !userId.equals(entity.getUserId())) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution intent not found");
+    }
+    ExecutionIntent intent = toDto(entity);
+    BrokerAccount acct = findLinkedAccount(userId, intent.getProviderId(), intent.getRegion(), intent.getAssetClass());
+
+    List<String> brokerOrderIds = new ArrayList<>();
+    List<BrokerOrder> placed = new ArrayList<>();
+    for (ExecutionOrder order : intent.getOrders()) {
+      BrokerOrderRequest request = new BrokerOrderRequest();
+      request.setSymbol(order.getSymbol());
+      request.setAssetClass(intent.getAssetClass());
+      request.setSide(order.getSide());
+      request.setQuantity(order.getQuantity());
+      request.setOrderType(order.getOrderType());
+      request.setTimeInForce(order.getTimeInForce());
+      request.setLimitPrice(order.getLimitPrice());
+      request.setCurrency(acct.getBaseCurrency());
+      BrokerOrder brokerOrder = brokers.placeOrder(userId, acct.getId(), request);
+      placed.add(brokerOrder);
+      if (brokerOrder.getId() != null) {
+        brokerOrderIds.add(brokerOrder.getId());
+      }
+    }
+
+    intent.setBrokerOrderIds(brokerOrderIds);
+    ExecutionStatus status = deriveStatus(placed);
+    intent.setStatus(status);
+    intent.setNote(status == ExecutionStatus.FILLED
+        ? "Execution filled via " + intent.getProviderName()
+        : "Execution submitted to " + intent.getProviderName());
+
+    if (status == ExecutionStatus.FILLED || status == ExecutionStatus.PARTIALLY_FILLED) {
+      List<ExecutionFillEntity> fillRows = new ArrayList<>();
+      Instant now = Instant.now();
+      for (int i = 0; i < placed.size(); i++) {
+        BrokerOrder brokerOrder = placed.get(i);
+        if (brokerOrder.getStatus() != BrokerOrderStatus.FILLED) {
+          continue;
+        }
+        ExecutionOrder execOrder = intent.getOrders().size() > i ? intent.getOrders().get(i) : null;
+        ExecutionFillEntity fill = new ExecutionFillEntity();
+        fill.setId(UUID.randomUUID().toString());
+        fill.setIntentId(intent.getId());
+        fill.setUserId(intent.getUserId());
+        fill.setProposalId(intent.getProposalId());
+        fill.setSymbol(execOrder == null ? null : execOrder.getSymbol());
+        fill.setSide(brokerOrder.getSide() == null ? "BUY" : brokerOrder.getSide().name());
+        fill.setQuantity(brokerOrder.getFilledQuantity() == null ? 0.0 : brokerOrder.getFilledQuantity());
+        fill.setPrice(brokerOrder.getAvgPrice() == null ? 0.0 : brokerOrder.getAvgPrice());
+        fill.setFee(0.0);
+        fill.setStatus(ExecutionStatus.FILLED.name());
+        fill.setFilledAt(now);
+        fill.setCreatedAt(now);
+        fill.setNote("Live fill");
+        fillRows.add(fill);
+      }
+      if (!fillRows.isEmpty()) {
+        fills.saveAll(fillRows);
+      }
+    }
+
+    applyIntentUpdate(entity, intent);
+    intents.save(entity);
+    audit.record(userId, userId, "EXECUTION_INTENT_SUBMITTED", "portfolio_execution_intent", intent.getId(),
+        Map.of("brokerOrders", brokerOrderIds.size(), "status", intent.getStatus().name()));
+    return intent;
   }
 
   public ExecutionIntent simulateFill(String userId, String id) {
@@ -349,6 +430,7 @@ public class ExecutionService {
     entity.setCreatedAt(intent.getCreatedAt());
     entity.setNote(intent.getNote());
     entity.setOrdersJson(JsonUtils.toJson(intent.getOrders()));
+    entity.setBrokerOrderIdsJson(JsonUtils.toJson(intent.getBrokerOrderIds()));
     return entity;
   }
 
@@ -365,6 +447,35 @@ public class ExecutionService {
     intent.setCreatedAt(entity.getCreatedAt());
     intent.setNote(entity.getNote());
     intent.setOrders(JsonUtils.fromJson(entity.getOrdersJson(), new TypeReference<List<ExecutionOrder>>() {}));
+    if (entity.getBrokerOrderIdsJson() != null && !entity.getBrokerOrderIdsJson().isBlank()) {
+      intent.setBrokerOrderIds(JsonUtils.fromJson(entity.getBrokerOrderIdsJson(), new TypeReference<List<String>>() {}));
+    }
     return intent;
+  }
+
+  private void applyIntentUpdate(ExecutionIntentEntity entity, ExecutionIntent intent) {
+    entity.setStatus(intent.getStatus());
+    entity.setNote(intent.getNote());
+    entity.setOrdersJson(JsonUtils.toJson(intent.getOrders()));
+    entity.setBrokerOrderIdsJson(JsonUtils.toJson(intent.getBrokerOrderIds()));
+  }
+
+  private ExecutionStatus deriveStatus(List<BrokerOrder> orders) {
+    if (orders == null || orders.isEmpty()) {
+      return ExecutionStatus.SUBMITTED;
+    }
+    boolean anyRejected = orders.stream().anyMatch(o -> o.getStatus() == BrokerOrderStatus.REJECTED);
+    if (anyRejected) {
+      return ExecutionStatus.FAILED;
+    }
+    long filled = orders.stream().filter(o -> o.getStatus() == BrokerOrderStatus.FILLED).count();
+    boolean partial = orders.stream().anyMatch(o -> o.getStatus() == BrokerOrderStatus.PARTIALLY_FILLED);
+    if (filled == orders.size()) {
+      return ExecutionStatus.FILLED;
+    }
+    if (filled > 0 || partial) {
+      return ExecutionStatus.PARTIALLY_FILLED;
+    }
+    return ExecutionStatus.SUBMITTED;
   }
 }

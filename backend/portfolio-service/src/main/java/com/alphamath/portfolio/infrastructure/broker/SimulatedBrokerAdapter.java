@@ -20,6 +20,8 @@ import com.alphamath.portfolio.domain.execution.BrokerAccountType;
 import com.alphamath.portfolio.domain.execution.Region;
 import com.alphamath.portfolio.domain.execution.TimeInForce;
 import com.alphamath.portfolio.domain.trade.TradeSide;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class SimulatedBrokerAdapter implements BrokerAdapter {
   private final BrokerCatalog catalog;
 

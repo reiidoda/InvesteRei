@@ -1007,6 +1007,29 @@ public class BrokerIntegrationService {
     }
   }
 
+  private void applyPriceDeviationWarnings(BrokerOrderReview review, List<LegEstimate> legs) {
+    if (review == null || tradingPolicy == null || legs == null || legs.isEmpty()) {
+      return;
+    }
+    double threshold = tradingPolicy.getPriceDeviationWarnPct();
+    if (threshold <= 0.0) {
+      return;
+    }
+    for (LegEstimate leg : legs) {
+      if (leg == null || leg.explicitPrice == null || leg.quotePrice == null) {
+        continue;
+      }
+      if (leg.quotePrice <= 0.0) {
+        continue;
+      }
+      double deviation = Math.abs(leg.explicitPrice - leg.quotePrice) / leg.quotePrice;
+      if (deviation >= threshold) {
+        String symbol = leg.symbol == null ? "symbol" : leg.symbol;
+        review.getWarnings().add("Price deviates " + round(deviation * 100.0, 2) + "% from quote for " + symbol);
+      }
+    }
+  }
+
   private void appendFractionalWarnings(BrokerOrderRequest request, List<String> warnings) {
     if (request.isAllowFractional()) {
       return;
@@ -1327,6 +1350,8 @@ public class BrokerIntegrationService {
     private final double quantity;
     private final com.alphamath.portfolio.domain.execution.AssetClass assetClass;
     private final Double price;
+    private final Double explicitPrice;
+    private final Double quotePrice;
     private final double notional;
     private final double signedNotional;
     private final double multiplier;
@@ -1336,6 +1361,8 @@ public class BrokerIntegrationService {
                         double quantity,
                         com.alphamath.portfolio.domain.execution.AssetClass assetClass,
                         Double price,
+                        Double explicitPrice,
+                        Double quotePrice,
                         double notional,
                         double signedNotional,
                         double multiplier) {
@@ -1344,6 +1371,8 @@ public class BrokerIntegrationService {
       this.quantity = quantity;
       this.assetClass = assetClass;
       this.price = price;
+      this.explicitPrice = explicitPrice;
+      this.quotePrice = quotePrice;
       this.notional = notional;
       this.signedNotional = signedNotional;
       this.multiplier = multiplier;
@@ -1450,6 +1479,18 @@ public class BrokerIntegrationService {
       return JsonUtils.fromJson(json, new TypeReference<List<com.alphamath.portfolio.domain.execution.AssetClass>>() {});
     } catch (Exception e) {
       return new ArrayList<>();
+    }
+  }
+
+  private static class LegPriceContext {
+    private final Double explicitPrice;
+    private final Double quotePrice;
+    private final Double effectivePrice;
+
+    private LegPriceContext(Double explicitPrice, Double quotePrice, Double effectivePrice) {
+      this.explicitPrice = explicitPrice;
+      this.quotePrice = quotePrice;
+      this.effectivePrice = effectivePrice;
     }
   }
 }

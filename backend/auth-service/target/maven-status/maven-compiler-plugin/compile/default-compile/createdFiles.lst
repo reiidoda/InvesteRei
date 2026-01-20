@@ -1,0 +1,6 @@
+com/alphamath/auth/mfa/TotpService.class
+com/alphamath/auth/security/AuthBootstrapProperties.class
+com/alphamath/auth/mfa/MfaSecretCipher.class
+com/alphamath/auth/security/JwtService$MfaChallenge.class
+com/alphamath/auth/mfa/MfaProperties.class
+com/alphamath/auth/mfa/Base32.class

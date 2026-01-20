@@ -17,6 +17,7 @@ public class MarketDataHttpProperties {
   private int maxSymbolsPerRequest = 50;
   private int rateLimitPerMinute = 120;
   private String source = "http";
+  private Mapping mapping = new Mapping();
 
   public boolean isEnabled() {
     return enabled;
@@ -104,5 +105,166 @@ public class MarketDataHttpProperties {
 
   public void setSource(String source) {
     this.source = source;
+  }
+
+  public Mapping getMapping() {
+    return mapping;
+  }
+
+  public void setMapping(Mapping mapping) {
+    this.mapping = mapping == null ? new Mapping() : mapping;
+  }
+
+  public static class Mapping {
+    private String latestQuotesPointer = "/quotes";
+    private String historyPricesPointer = "/prices";
+    private QuoteMapping quote = new QuoteMapping();
+    private PriceMapping price = new PriceMapping();
+
+    public String getLatestQuotesPointer() {
+      return latestQuotesPointer;
+    }
+
+    public void setLatestQuotesPointer(String latestQuotesPointer) {
+      this.latestQuotesPointer = latestQuotesPointer;
+    }
+
+    public String getHistoryPricesPointer() {
+      return historyPricesPointer;
+    }
+
+    public void setHistoryPricesPointer(String historyPricesPointer) {
+      this.historyPricesPointer = historyPricesPointer;
+    }
+
+    public QuoteMapping getQuote() {
+      return quote;
+    }
+
+    public void setQuote(QuoteMapping quote) {
+      this.quote = quote == null ? new QuoteMapping() : quote;
+    }
+
+    public PriceMapping getPrice() {
+      return price;
+    }
+
+    public void setPrice(PriceMapping price) {
+      this.price = price == null ? new PriceMapping() : price;
+    }
+  }
+
+  public static class QuoteMapping {
+    private String symbol = "/symbol";
+    private String timestamp = "/timestamp";
+    private String price = "/price";
+    private String source = "/source";
+
+    public String getSymbol() {
+      return symbol;
+    }
+
+    public void setSymbol(String symbol) {
+      this.symbol = symbol;
+    }
+
+    public String getTimestamp() {
+      return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
+      this.timestamp = timestamp;
+    }
+
+    public String getPrice() {
+      return price;
+    }
+
+    public void setPrice(String price) {
+      this.price = price;
+    }
+
+    public String getSource() {
+      return source;
+    }
+
+    public void setSource(String source) {
+      this.source = source;
+    }
+  }
+
+  public static class PriceMapping {
+    private String symbol = "/symbol";
+    private String timestamp = "/timestamp";
+    private String open = "/open";
+    private String high = "/high";
+    private String low = "/low";
+    private String close = "/close";
+    private String volume = "/volume";
+    private String source = "/source";
+
+    public String getSymbol() {
+      return symbol;
+    }
+
+    public void setSymbol(String symbol) {
+      this.symbol = symbol;
+    }
+
+    public String getTimestamp() {
+      return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
+      this.timestamp = timestamp;
+    }
+
+    public String getOpen() {
+      return open;
+    }
+
+    public void setOpen(String open) {
+      this.open = open;
+    }
+
+    public String getHigh() {
+      return high;
+    }
+
+    public void setHigh(String high) {
+      this.high = high;
+    }
+
+    public String getLow() {
+      return low;
+    }
+
+    public void setLow(String low) {
+      this.low = low;
+    }
+
+    public String getClose() {
+      return close;
+    }
+
+    public void setClose(String close) {
+      this.close = close;
+    }
+
+    public String getVolume() {
+      return volume;
+    }
+
+    public void setVolume(String volume) {
+      this.volume = volume;
+    }
+
+    public String getSource() {
+      return source;
+    }
+
+    public void setSource(String source) {
+      this.source = source;
+    }
   }
 }

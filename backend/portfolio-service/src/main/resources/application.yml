@@ -17,12 +17,17 @@ spring:
     enabled: true
     table: flyway_portfolio_history
     baseline-on-migrate: true
+    baseline-version: 0
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+
+logging:
+  pattern:
+    level: "%5p [traceId=%X{traceId} requestId=%X{requestId}]"
 
 alphamath:
   jwt:
@@ -75,6 +80,21 @@ alphamath:
       granularity: ${MARKETDATA_BACKFILL_GRANULARITY:DAY}
       source: ${MARKETDATA_BACKFILL_SOURCE:csv}
       limit: ${MARKETDATA_BACKFILL_LIMIT:0}
+    license-catalog:
+      http:
+        enabled: ${MARKETDATA_LICENSE_CATALOG_HTTP_ENABLED:false}
+        baseUrl: ${MARKETDATA_LICENSE_CATALOG_BASE_URL:}
+        catalogPath: ${MARKETDATA_LICENSE_CATALOG_PATH:/licenses/catalog}
+        apiKeyHeader: ${MARKETDATA_LICENSE_CATALOG_API_KEY_HEADER:X-API-KEY}
+        apiKey: ${MARKETDATA_LICENSE_CATALOG_API_KEY:}
+        bearerToken: ${MARKETDATA_LICENSE_CATALOG_BEARER_TOKEN:}
+        basicUser: ${MARKETDATA_LICENSE_CATALOG_BASIC_USER:}
+        basicPassword: ${MARKETDATA_LICENSE_CATALOG_BASIC_PASSWORD:}
+        signatureHeader: ${MARKETDATA_LICENSE_CATALOG_SIGNATURE_HEADER:X-Webhook-Signature}
+        signatureSecret: ${MARKETDATA_LICENSE_CATALOG_SIGNATURE_SECRET:}
+        userAgent: ${MARKETDATA_LICENSE_CATALOG_USER_AGENT:InvesteRei-MarketData/1.0}
+        connectTimeoutMs: ${MARKETDATA_LICENSE_CATALOG_CONNECT_TIMEOUT_MS:2000}
+        readTimeoutMs: ${MARKETDATA_LICENSE_CATALOG_READ_TIMEOUT_MS:5000}
   autoinvest:
     schedulerDelayMs: ${AUTOINVEST_SCHEDULER_DELAY_MS:60000}
     minReturns: ${AUTOINVEST_MIN_RETURNS:30}
@@ -90,16 +110,16 @@ alphamath:
       batchSize: ${NOTIFICATION_DELIVERY_BATCH_SIZE:100}
       email:
         enabled: ${NOTIFICATION_EMAIL_ENABLED:true}
-        provider: ${NOTIFICATION_EMAIL_PROVIDER:stub-email}
+        provider: ${NOTIFICATION_EMAIL_PROVIDER:smtp-email}
       sms:
         enabled: ${NOTIFICATION_SMS_ENABLED:true}
-        provider: ${NOTIFICATION_SMS_PROVIDER:stub-sms}
+        provider: ${NOTIFICATION_SMS_PROVIDER:http-sms}
       push:
         enabled: ${NOTIFICATION_PUSH_ENABLED:true}
-        provider: ${NOTIFICATION_PUSH_PROVIDER:stub-push}
+        provider: ${NOTIFICATION_PUSH_PROVIDER:http-push}
       webhook:
         enabled: ${NOTIFICATION_WEBHOOK_ENABLED:true}
-        provider: ${NOTIFICATION_WEBHOOK_PROVIDER:stub-webhook}
+        provider: ${NOTIFICATION_WEBHOOK_PROVIDER:http-webhook}
     smtp:
       enabled: ${NOTIFICATION_SMTP_ENABLED:false}
       host: ${NOTIFICATION_SMTP_HOST:}
@@ -118,3 +138,48 @@ alphamath:
       signatureHeader: ${NOTIFICATION_WEBHOOK_SIGNATURE_HEADER:X-Webhook-Signature}
       signatureSecret: ${NOTIFICATION_WEBHOOK_SIGNATURE_SECRET:}
       userAgent: ${NOTIFICATION_WEBHOOK_USER_AGENT:InvesteRei-Notifier/1.0}
+    sms:
+      enabled: ${NOTIFICATION_SMS_HTTP_ENABLED:false}
+      baseUrl: ${NOTIFICATION_SMS_BASE_URL:}
+      sendPath: ${NOTIFICATION_SMS_SEND_PATH:/sms/send}
+      apiKeyHeader: ${NOTIFICATION_SMS_API_KEY_HEADER:X-API-KEY}
+      apiKey: ${NOTIFICATION_SMS_API_KEY:}
+      bearerToken: ${NOTIFICATION_SMS_BEARER_TOKEN:}
+      basicUser: ${NOTIFICATION_SMS_BASIC_USER:}
+      basicPassword: ${NOTIFICATION_SMS_BASIC_PASSWORD:}
+      signatureHeader: ${NOTIFICATION_SMS_SIGNATURE_HEADER:X-Webhook-Signature}
+      signatureSecret: ${NOTIFICATION_SMS_SIGNATURE_SECRET:}
+      userAgent: ${NOTIFICATION_SMS_USER_AGENT:InvesteRei-Notifier/1.0}
+      connectTimeoutMs: ${NOTIFICATION_SMS_CONNECT_TIMEOUT_MS:2000}
+      readTimeoutMs: ${NOTIFICATION_SMS_READ_TIMEOUT_MS:5000}
+    push:
+      enabled: ${NOTIFICATION_PUSH_HTTP_ENABLED:false}
+      baseUrl: ${NOTIFICATION_PUSH_BASE_URL:}
+      sendPath: ${NOTIFICATION_PUSH_SEND_PATH:/push/send}
+      apiKeyHeader: ${NOTIFICATION_PUSH_API_KEY_HEADER:X-API-KEY}
+      apiKey: ${NOTIFICATION_PUSH_API_KEY:}
+      bearerToken: ${NOTIFICATION_PUSH_BEARER_TOKEN:}
+      basicUser: ${NOTIFICATION_PUSH_BASIC_USER:}
+      basicPassword: ${NOTIFICATION_PUSH_BASIC_PASSWORD:}
+      signatureHeader: ${NOTIFICATION_PUSH_SIGNATURE_HEADER:X-Webhook-Signature}
+      signatureSecret: ${NOTIFICATION_PUSH_SIGNATURE_SECRET:}
+      userAgent: ${NOTIFICATION_PUSH_USER_AGENT:InvesteRei-Notifier/1.0}
+      connectTimeoutMs: ${NOTIFICATION_PUSH_CONNECT_TIMEOUT_MS:2000}
+      readTimeoutMs: ${NOTIFICATION_PUSH_READ_TIMEOUT_MS:5000}
+  brokers:
+    http:
+      enabled: ${BROKER_HTTP_ENABLED:false}
+      providers: {}
+  funding:
+    http:
+      enabled: ${FUNDING_HTTP_ENABLED:false}
+      providers: {}
+  statements:
+    http:
+      enabled: ${STATEMENT_HTTP_ENABLED:false}
+      providers: {}
+  reference:
+    calendar:
+      http:
+        enabled: ${REFERENCE_CALENDAR_HTTP_ENABLED:false}
+        providers: {}

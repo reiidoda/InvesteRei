@@ -5,7 +5,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class BrokerLinkRequest {
@@ -16,4 +18,8 @@ public class BrokerLinkRequest {
   private Region region = Region.US;
 
   private List<AssetClass> assetClasses = new ArrayList<>();
+
+  private String label;
+
+  private Map<String, Object> metadata = new LinkedHashMap<>();
 }

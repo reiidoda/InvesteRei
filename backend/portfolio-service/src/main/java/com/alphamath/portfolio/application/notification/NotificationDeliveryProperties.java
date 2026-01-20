@@ -13,10 +13,10 @@ public class NotificationDeliveryProperties {
   private long baseDelaySeconds = 30;
   private long maxDelaySeconds = 3600;
   private int batchSize = 100;
-  private ChannelSettings email = new ChannelSettings(true, "stub-email");
-  private ChannelSettings sms = new ChannelSettings(true, "stub-sms");
-  private ChannelSettings push = new ChannelSettings(true, "stub-push");
-  private ChannelSettings webhook = new ChannelSettings(true, "stub-webhook");
+  private ChannelSettings email = new ChannelSettings(true, "smtp-email");
+  private ChannelSettings sms = new ChannelSettings(true, "http-sms");
+  private ChannelSettings push = new ChannelSettings(true, "http-push");
+  private ChannelSettings webhook = new ChannelSettings(true, "http-webhook");
 
   public boolean isEnabled() {
     return enabled;

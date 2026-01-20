@@ -3,9 +3,10 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import numpy as np
 
-app = FastAPI(title="InvesteRei AI Service", version="0.2.0")
+app = FastAPI(title="InvesteRei AI Service", version="0.3.0")
 
 MODEL_VERSION = "baseline-v1"
+RL_BASELINE_VERSION = "rl-baseline-v1"
 
 class PredictRequest(BaseModel):
     returns: List[float] = Field(min_length=30, max_length=50000)
@@ -58,6 +59,23 @@ class EvaluateResponse(BaseModel):
     window: int
     models: List[EvalModelMetrics]
     regimes: List[EvalRegimeMetrics]
+    model_version: str
+    disclaimer: str
+
+class RlBaselineRequest(BaseModel):
+    returns: List[List[float]] = Field(min_length=1, max_length=200000)
+    risk_target: float = Field(default=0.1, gt=0.0, le=5.0)
+    max_turnover: float = Field(default=0.25, ge=0.0, le=1.0)
+    current_weights: Optional[List[float]] = None
+    cash_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+
+class RlBaselineResponse(BaseModel):
+    policy: str
+    target_weights: List[float]
+    deltas: List[float]
+    cash_weight: float
+    portfolio_volatility: float
+    turnover: float
     model_version: str
     disclaimer: str
 
@@ -180,4 +198,58 @@ def evaluate(req: EvaluateRequest):
         regimes=regimes,
         model_version=MODEL_VERSION,
         disclaimer="Evaluation is educational. Do not use for live trading."
+    )
+
+@app.post("/v1/rl/baseline", response_model=RlBaselineResponse)
+def rl_baseline(req: RlBaselineRequest):
+    r = np.array(req.returns, dtype=float)
+    if r.ndim == 1:
+        r = r.reshape(1, -1)
+    if r.ndim != 2 or r.shape[1] < 30:
+        raise ValueError("returns must be a 2D array with at least 30 samples")
+
+    asset_count = r.shape[0]
+    vols = np.std(r, axis=1, ddof=1)
+    vols = np.where(vols <= 1e-12, 1e-12, vols)
+    inv_vol = 1.0 / vols
+    weights = inv_vol / np.sum(inv_vol)
+
+    if req.cash_weight > 0:
+        weights = weights * (1.0 - req.cash_weight)
+
+    port_returns = np.dot(weights, r)
+    port_vol = float(np.std(port_returns, ddof=1))
+    if port_vol > 1e-12:
+        scale = min(1.0, req.risk_target / port_vol)
+        weights = weights * scale
+        port_returns = np.dot(weights, r)
+        port_vol = float(np.std(port_returns, ddof=1))
+
+    cash_weight = max(0.0, 1.0 - float(np.sum(weights)))
+    deltas = [0.0] * asset_count
+    turnover = 0.0
+
+    if req.current_weights is not None:
+        if len(req.current_weights) != asset_count:
+            raise ValueError("current_weights length mismatch")
+        current = np.array(req.current_weights, dtype=float)
+        delta = weights - current
+        turnover = float(np.sum(np.abs(delta)))
+        if req.max_turnover > 0 and turnover > req.max_turnover:
+            scale = req.max_turnover / turnover
+            delta = delta * scale
+            weights = current + delta
+            turnover = float(np.sum(np.abs(delta)))
+            cash_weight = max(0.0, 1.0 - float(np.sum(weights)))
+        deltas = delta.tolist()
+
+    return RlBaselineResponse(
+        policy="risk_parity_baseline",
+        target_weights=weights.tolist(),
+        deltas=deltas,
+        cash_weight=cash_weight,
+        portfolio_volatility=port_vol,
+        turnover=turnover,
+        model_version=RL_BASELINE_VERSION,
+        disclaimer="Baseline policy for research only. Not financial advice."
     )

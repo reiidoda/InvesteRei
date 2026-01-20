@@ -96,6 +96,7 @@ public class FundingService {
     source.setUserId(userId);
     source.setMethodType(req.getMethodType());
     source.setProviderId(req.getProviderId());
+    source.setProviderReference(req.getProviderReference());
     source.setLabel(req.getLabel());
     source.setLast4(req.getLast4() == null ? "0000" : req.getLast4());
     source.setCurrency(req.getCurrency() == null ? "USD" : req.getCurrency());
@@ -402,6 +403,7 @@ public class FundingService {
     source.setUserId(entity.getUserId());
     source.setMethodType(entity.getMethodType());
     source.setProviderId(entity.getProviderId());
+    source.setProviderReference(entity.getProviderReference());
     source.setLabel(entity.getLabel());
     source.setLast4(entity.getLast4());
     source.setCurrency(entity.getCurrency());
@@ -417,6 +419,7 @@ public class FundingService {
     entity.setUserId(source.getUserId());
     entity.setMethodType(source.getMethodType());
     entity.setProviderId(source.getProviderId());
+    entity.setProviderReference(source.getProviderReference());
     entity.setLabel(source.getLabel());
     entity.setLast4(source.getLast4());
     entity.setCurrency(source.getCurrency());

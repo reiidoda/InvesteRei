@@ -44,7 +44,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
       String token = auth.substring("Bearer ".length()).trim();
       Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
 
-      String userId = String.valueOf(claims.get("uid", ""));
+      Object uidClaim = claims.get("uid");
+      String userId = uidClaim == null ? "" : String.valueOf(uidClaim);
       UsernamePasswordAuthenticationToken authentication =
           new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
       SecurityContextHolder.getContext().setAuthentication(authentication);

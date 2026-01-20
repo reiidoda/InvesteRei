@@ -4,10 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.ReadOffset;
 import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.StreamOperations;
-import org.springframework.data.redis.core.StreamReadOptions;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -76,5 +76,21 @@ public class SimulationQueue {
     }
   }
 
-  public record QueuedJob(RecordId recordId, String jobId) {}
+  public static class QueuedJob {
+    private final RecordId recordId;
+    private final String jobId;
+
+    public QueuedJob(RecordId recordId, String jobId) {
+      this.recordId = recordId;
+      this.jobId = jobId;
+    }
+
+    public RecordId getRecordId() {
+      return recordId;
+    }
+
+    public String getJobId() {
+      return jobId;
+    }
+  }
 }

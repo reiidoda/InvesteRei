@@ -1,10 +1,12 @@
 package com.alphamath.portfolio.web;
 
+import com.alphamath.portfolio.application.reference.ExchangeCalendarSyncService;
 import com.alphamath.portfolio.application.reference.ReferenceDataService;
 import com.alphamath.portfolio.domain.execution.AssetClass;
 import com.alphamath.portfolio.domain.reference.Currency;
 import com.alphamath.portfolio.domain.reference.ExchangeCalendarDay;
 import com.alphamath.portfolio.domain.reference.ExchangeSessionStatus;
+import com.alphamath.portfolio.domain.reference.ExchangeCalendarSyncRequest;
 import com.alphamath.portfolio.domain.reference.Exchange;
 import com.alphamath.portfolio.domain.reference.FxRate;
 import com.alphamath.portfolio.domain.reference.Instrument;
@@ -27,10 +29,14 @@ import java.util.Map;
 public class ReferenceDataController {
   private final ReferenceDataService reference;
   private final SecurityGuard security;
+  private final ExchangeCalendarSyncService calendarSync;
 
-  public ReferenceDataController(ReferenceDataService reference, SecurityGuard security) {
+  public ReferenceDataController(ReferenceDataService reference,
+                                 SecurityGuard security,
+                                 ExchangeCalendarSyncService calendarSync) {
     this.reference = reference;
     this.security = security;
+    this.calendarSync = calendarSync;
   }
 
   @PostMapping("/instruments")
@@ -110,6 +116,21 @@ public class ReferenceDataController {
       inputs.add(day);
     }
     return reference.upsertExchangeCalendar(code, inputs);
+  }
+
+  @PostMapping("/exchanges/{code}/calendar/sync")
+  public List<ExchangeCalendarDay> syncCalendar(@PathVariable String code,
+                                                @RequestHeader(value = "X-User-Roles", required = false) String roles,
+                                                @RequestBody ExchangeCalendarSyncRequest req) {
+    security.requireRole(roles, "ADMIN", "DATA_ADMIN");
+    LocalDate start = req.getStart() == null ? null : req.getStart();
+    LocalDate end = req.getEnd() == null ? null : req.getEnd();
+    return calendarSync.sync(code, req.getProviderId(), start, end, req.getMetadata());
+  }
+
+  @GetMapping("/calendar/providers")
+  public List<String> calendarProviders() {
+    return calendarSync.listProviders();
   }
 
   @GetMapping("/exchanges/{code}/calendar")

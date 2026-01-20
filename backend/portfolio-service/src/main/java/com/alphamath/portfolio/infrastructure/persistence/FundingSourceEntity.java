@@ -21,6 +21,7 @@ public class FundingSourceEntity {
   private FundingMethodType methodType;
 
   private String providerId;
+  private String providerReference;
   private String label;
   private String last4;
   private String currency;

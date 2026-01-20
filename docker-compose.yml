@@ -20,6 +20,8 @@ services:
     environment:
       SERVER_PORT: 8080
       JWT_SECRET: dev_change_me_please
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       AUTH_URL: http://auth:8081
       PORTFOLIO_URL: http://portfolio:8082
       AI_URL: http://ai:8090
@@ -40,6 +42,7 @@ services:
       DATABASE_USER: investerei
       DATABASE_PASSWORD: investerei
       JWT_SECRET: dev_change_me_please
+      AUTH_MFA_SECRET_KEY: dev_change_me_please_change
     ports:
       - "8081:8081"
     depends_on:

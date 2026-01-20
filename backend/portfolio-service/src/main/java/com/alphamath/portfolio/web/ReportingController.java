@@ -2,6 +2,7 @@ package com.alphamath.portfolio.web;
 
 import com.alphamath.portfolio.application.reporting.ReconciliationService;
 import com.alphamath.portfolio.application.reporting.ReportingService;
+import com.alphamath.portfolio.application.reporting.StatementFeedService;
 import com.alphamath.portfolio.application.reporting.StatementImportService;
 import com.alphamath.portfolio.domain.reporting.CorporateAction;
 import com.alphamath.portfolio.domain.reporting.CorporateActionRequest;
@@ -10,6 +11,7 @@ import com.alphamath.portfolio.domain.reporting.LedgerEntryRequest;
 import com.alphamath.portfolio.domain.reporting.ReconciliationReport;
 import com.alphamath.portfolio.domain.reporting.ReconciliationRequest;
 import com.alphamath.portfolio.domain.reporting.Statement;
+import com.alphamath.portfolio.domain.reporting.StatementFeedRequest;
 import com.alphamath.portfolio.domain.reporting.StatementImportRequest;
 import com.alphamath.portfolio.domain.reporting.StatementImportResult;
 import com.alphamath.portfolio.domain.reporting.StatementRequest;
@@ -28,13 +30,16 @@ public class ReportingController {
   private final ReportingService reporting;
   private final ReconciliationService reconciliation;
   private final StatementImportService statementImport;
+  private final StatementFeedService statementFeed;
 
   public ReportingController(ReportingService reporting,
                              ReconciliationService reconciliation,
-                             StatementImportService statementImport) {
+                             StatementImportService statementImport,
+                             StatementFeedService statementFeed) {
     this.reporting = reporting;
     this.reconciliation = reconciliation;
     this.statementImport = statementImport;
+    this.statementFeed = statementFeed;
   }
 
   @PostMapping("/ledger")
@@ -105,6 +110,16 @@ public class ReportingController {
   @PostMapping("/import")
   public StatementImportResult importStatement(@RequestBody StatementImportRequest req, Principal principal) {
     return statementImport.importStatement(userId(principal), req);
+  }
+
+  @GetMapping("/providers")
+  public List<String> statementProviders() {
+    return statementFeed.listProviders();
+  }
+
+  @PostMapping("/import-feed")
+  public StatementImportResult importFeed(@RequestBody StatementFeedRequest req, Principal principal) {
+    return statementFeed.importFeed(userId(principal), req);
   }
 
   private String userId(Principal principal) {

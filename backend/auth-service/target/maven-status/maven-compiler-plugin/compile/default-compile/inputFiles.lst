@@ -1,0 +1,12 @@
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/AuthServiceApplication.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/mfa/Base32.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/mfa/MfaProperties.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/mfa/MfaSecretCipher.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/mfa/TotpService.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/security/AuthBootstrapProperties.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/security/JwtService.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/security/SecurityConfig.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/user/UserEntity.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/user/UserRepository.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/web/AuthController.java
+/Users/aidei/Documents/github/InvesteRei/backend/auth-service/src/main/java/com/alphamath/auth/web/RequestTraceFilter.java

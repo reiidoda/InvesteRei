@@ -1,5 +1,6 @@
 package com.alphamath.auth.web;
 
+import com.alphamath.auth.mfa.TotpService;
 import com.alphamath.auth.security.AuthBootstrapProperties;
 import com.alphamath.auth.security.JwtService;
 import com.alphamath.auth.user.UserEntity;
@@ -18,7 +19,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -26,12 +26,14 @@ public class AuthController {
   private final UserRepository users;
   private final JwtService jwt;
   private final AuthBootstrapProperties bootstrap;
+  private final TotpService totp;
   private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-  public AuthController(UserRepository users, JwtService jwt, AuthBootstrapProperties bootstrap) {
+  public AuthController(UserRepository users, JwtService jwt, AuthBootstrapProperties bootstrap, TotpService totp) {
     this.users = users;
     this.jwt = jwt;
     this.bootstrap = bootstrap;
+    this.totp = totp;
   }
 
   @PostMapping("/register")
@@ -49,7 +51,7 @@ public class AuthController {
 
     List<String> roles = parseRoles(u.getRoles());
     String token = jwt.issueToken(u.getId(), u.getEmail(), roles, u.isMfaEnabled());
-    return new TokenResponse(token, roles, u.isMfaEnabled(), u.isMfaEnabled());
+    return new TokenResponse(token, roles, u.isMfaEnabled(), false, null, null);
   }
 
   @PostMapping("/login")
@@ -69,8 +71,12 @@ public class AuthController {
     }
 
     List<String> roles = parseRoles(u.getRoles());
-    String token = jwt.issueToken(u.getId(), u.getEmail(), roles, u.isMfaEnabled());
-    return new TokenResponse(token, roles, u.isMfaEnabled(), u.isMfaEnabled());
+    if (u.isMfaEnabled()) {
+      JwtService.MfaChallenge challenge = jwt.issueMfaChallenge(u.getId(), u.getEmail());
+      return new TokenResponse(null, roles, true, true, challenge.getToken(), challenge.getExpiresAt());
+    }
+    String token = jwt.issueToken(u.getId(), u.getEmail(), roles, false);
+    return new TokenResponse(token, roles, false, false, null, null);
   }
 
   @GetMapping("/profile")
@@ -93,34 +99,69 @@ public class AuthController {
                                   @Valid @RequestBody MfaEnrollRequest req) {
     UserEntity user = requireUser(auth);
     String method = req.method == null ? "TOTP" : req.method.trim().toUpperCase(Locale.US);
-    String secret = "SIM-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    if (!method.equals("TOTP")) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported MFA method");
+    }
+    String secret = totp.generateSecret();
     user.setMfaMethod(method);
-    user.setMfaSecret(secret);
+    user.setMfaSecret(totp.encryptSecret(secret));
     user.setMfaEnrolledAt(Instant.now());
+    user.setMfaEnabled(false);
+    user.setMfaVerifiedAt(null);
     users.save(user);
 
     MfaEnrollResponse response = new MfaEnrollResponse();
     response.method = method;
     response.enrolledAt = user.getMfaEnrolledAt();
-    response.secretMasked = maskSecret(secret);
-    response.note = "Stub enrollment. Replace with real TOTP/SMS provider before production.";
+    response.secretMasked = totp.maskSecret(secret);
+    response.secret = secret;
+    response.issuer = totp.issuer();
+    response.otpauthUrl = totp.otpauthUrl(user.getEmail(), secret);
+    response.note = "Scan the otpauth URL in an authenticator app, then verify with the next code.";
     return response;
   }
 
   @PostMapping("/mfa/verify")
   public MfaStatusResponse verify(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String auth,
                                   @Valid @RequestBody MfaVerifyRequest req) {
-    UserEntity user = requireUser(auth);
-    if (req.code == null || req.code.isBlank()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "code is required");
+    UserEntity user;
+    boolean viaChallenge = false;
+    if (req.mfaToken != null && !req.mfaToken.isBlank()) {
+      try {
+        var claims = jwt.parseToken(req.mfaToken.trim());
+        if (!jwt.isMfaChallenge(claims)) {
+          throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid MFA token");
+        }
+        Object uidClaim = claims.get("uid");
+        String uid = uidClaim == null ? "" : String.valueOf(uidClaim);
+        Long id = Long.parseLong(uid);
+        user = users.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        viaChallenge = true;
+      } catch (ResponseStatusException e) {
+        throw e;
+      } catch (Exception e) {
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid MFA token");
+      }
+    } else {
+      user = requireUser(auth);
     }
-    if (!"000000".equals(req.code.trim())) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid MFA code (stub expects 000000)");
+    if (user.getMfaSecret() == null || user.getMfaSecret().isBlank()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "MFA not enrolled");
+    }
+    if (!totp.verifyCode(user.getMfaSecret(), req.code)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid MFA code");
     }
     user.setMfaEnabled(true);
     user.setMfaVerifiedAt(Instant.now());
     users.save(user);
-    return buildMfaStatus(user);
+    MfaStatusResponse status = buildMfaStatus(user);
+    if (!viaChallenge) {
+      return status;
+    }
+    List<String> roles = parseRoles(user.getRoles());
+    String token = jwt.issueToken(user.getId(), user.getEmail(), roles, true);
+    return new MfaStatusResponse(status, token, roles, false);
   }
 
   @PostMapping("/mfa/disable")
@@ -128,6 +169,9 @@ public class AuthController {
     UserEntity user = requireUser(auth);
     user.setMfaEnabled(false);
     user.setMfaVerifiedAt(null);
+    user.setMfaSecret(null);
+    user.setMfaMethod(null);
+    user.setMfaEnrolledAt(null);
     users.save(user);
     return buildMfaStatus(user);
   }
@@ -174,6 +218,8 @@ public class AuthController {
     public final List<String> roles;
     public final boolean mfaEnabled;
     public final boolean mfaRequired;
+    public final String mfaToken;
+    public final Instant mfaTokenExpiresAt;
   }
 
   @Data
@@ -197,6 +243,9 @@ public class AuthController {
   static class MfaEnrollResponse {
     public String method;
     public String secretMasked;
+    public String secret;
+    public String issuer;
+    public String otpauthUrl;
     public Instant enrolledAt;
     public String note;
   }
@@ -205,6 +254,7 @@ public class AuthController {
   static class MfaVerifyRequest {
     @NotBlank
     public String code;
+    public String mfaToken;
   }
 
   @Data
@@ -213,6 +263,21 @@ public class AuthController {
     public String mfaMethod;
     public Instant mfaEnrolledAt;
     public Instant mfaVerifiedAt;
+    public String token;
+    public List<String> roles;
+    public boolean mfaRequired;
+
+    public MfaStatusResponse() {}
+
+    public MfaStatusResponse(MfaStatusResponse base, String token, List<String> roles, boolean mfaRequired) {
+      this.mfaEnabled = base.mfaEnabled;
+      this.mfaMethod = base.mfaMethod;
+      this.mfaEnrolledAt = base.mfaEnrolledAt;
+      this.mfaVerifiedAt = base.mfaVerifiedAt;
+      this.token = token;
+      this.roles = roles;
+      this.mfaRequired = mfaRequired;
+    }
   }
 
   @Data
@@ -235,7 +300,12 @@ public class AuthController {
     }
     String token = authHeader.substring("Bearer ".length()).trim();
     try {
-      String uid = String.valueOf(jwt.parseToken(token).get("uid", ""));
+      var claims = jwt.parseToken(token);
+      if (jwt.isMfaChallenge(claims)) {
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token");
+      }
+      Object uidClaim = claims.get("uid");
+      String uid = uidClaim == null ? "" : String.valueOf(uidClaim);
       Long id = Long.parseLong(uid);
       return users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
     } catch (Exception e) {
@@ -297,13 +367,5 @@ public class AuthController {
       joined = String.join(",", withUser);
     }
     return joined.isBlank() ? "USER" : joined;
-  }
-
-  private String maskSecret(String secret) {
-    if (secret == null || secret.length() < 4) {
-      return "****";
-    }
-    String tail = secret.substring(secret.length() - 4);
-    return "****" + tail;
   }
 }

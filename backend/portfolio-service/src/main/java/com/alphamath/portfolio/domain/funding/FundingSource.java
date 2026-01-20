@@ -12,6 +12,7 @@ public class FundingSource {
   private String userId;
   private FundingMethodType methodType;
   private String providerId;
+  private String providerReference;
   private String label;
   private String last4;
   private String currency;

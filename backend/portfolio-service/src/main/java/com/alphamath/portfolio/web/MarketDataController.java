@@ -3,12 +3,14 @@ package com.alphamath.portfolio.web;
 import com.alphamath.portfolio.application.marketdata.LatestQuotesResult;
 import com.alphamath.portfolio.application.marketdata.MarketDataBackfillService;
 import com.alphamath.portfolio.application.marketdata.MarketDataEntitlementService;
+import com.alphamath.portfolio.application.marketdata.MarketDataLicenseCatalogService;
 import com.alphamath.portfolio.application.marketdata.MarketDataProviderCatalog;
 import com.alphamath.portfolio.application.marketdata.MarketDataService;
 import com.alphamath.portfolio.domain.marketdata.MarketDataBackfillResult;
 import com.alphamath.portfolio.domain.marketdata.MarketDataEntitlement;
 import com.alphamath.portfolio.domain.marketdata.MarketDataEntitlementRequest;
 import com.alphamath.portfolio.domain.marketdata.MarketDataLicense;
+import com.alphamath.portfolio.domain.marketdata.MarketDataLicenseCatalogEntry;
 import com.alphamath.portfolio.domain.marketdata.MarketDataLicenseRequest;
 import com.alphamath.portfolio.domain.marketdata.MarketPrice;
 import com.alphamath.portfolio.domain.marketdata.MarketPriceInput;
@@ -37,17 +39,20 @@ public class MarketDataController {
   private final MarketDataService service;
   private final MarketDataBackfillService backfill;
   private final MarketDataEntitlementService entitlements;
+  private final MarketDataLicenseCatalogService licenseCatalog;
   private final MarketDataProviderCatalog providers;
   private final SecurityGuard security;
 
   public MarketDataController(MarketDataService service,
                               MarketDataBackfillService backfill,
                               MarketDataEntitlementService entitlements,
+                              MarketDataLicenseCatalogService licenseCatalog,
                               MarketDataProviderCatalog providers,
                               SecurityGuard security) {
     this.service = service;
     this.backfill = backfill;
     this.entitlements = entitlements;
+    this.licenseCatalog = licenseCatalog;
     this.providers = providers;
     this.security = security;
   }
@@ -87,6 +92,11 @@ public class MarketDataController {
   public List<MarketDataLicense> licenses(@RequestParam(required = false) String status,
                                           Principal principal) {
     return entitlements.listLicenses(userId(principal), status);
+  }
+
+  @GetMapping("/licenses/catalog")
+  public List<MarketDataLicenseCatalogEntry> licenseCatalog() {
+    return licenseCatalog.listCatalog();
   }
 
   @PostMapping("/licenses")

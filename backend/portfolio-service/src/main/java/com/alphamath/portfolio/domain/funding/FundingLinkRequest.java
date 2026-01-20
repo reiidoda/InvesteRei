@@ -18,4 +18,5 @@ public class FundingLinkRequest {
   private String last4;
   private String currency = "USD";
   private String network;
+  private String providerReference;
 }

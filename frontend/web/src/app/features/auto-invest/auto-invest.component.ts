@@ -422,6 +422,10 @@ import { API_BASE } from '../../core/api';
       <div style="height: 10px;"></div>
       <div class="row">
         <div style="flex:1;">
+          <label>Provider Reference</label>
+          <input [(ngModel)]="fundingProviderReference" placeholder="external-id" />
+        </div>
+        <div style="flex:1;">
           <label>Network (crypto)</label>
           <input [(ngModel)]="fundingNetwork" placeholder="ETH" />
         </div>
@@ -859,6 +863,7 @@ export class AutoInvestComponent {
   fundingLast4 = '1234';
   fundingCurrency = 'USD';
   fundingNetwork = 'ETH';
+  fundingProviderReference = '';
   depositSourceId = '';
   depositAmount = 1000;
   withdrawSourceId = '';
@@ -1157,7 +1162,7 @@ export class AutoInvestComponent {
 
   linkFunding() {
     this.fundingMsg.set('Linking...');
-    const body = {
+    const body: any = {
       methodType: this.fundingMethod,
       providerId: this.providerId,
       label: this.fundingLabel,
@@ -1165,6 +1170,9 @@ export class AutoInvestComponent {
       currency: this.fundingCurrency,
       network: this.fundingNetwork,
     };
+    if (this.fundingProviderReference.trim()) {
+      body.providerReference = this.fundingProviderReference.trim();
+    }
     this.http.post(`${API_BASE}/api/v1/funding/sources`, body).subscribe({
       next: () => { this.fundingMsg.set('Linked.'); this.refreshSources(); },
       error: (e) => this.fundingMsg.set(e?.error?.message || 'Link failed')

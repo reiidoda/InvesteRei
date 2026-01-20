@@ -10,12 +10,15 @@ import com.alphamath.portfolio.domain.funding.FundingTransferReceipt;
 import com.alphamath.portfolio.domain.funding.FundingTransferRequest;
 import com.alphamath.portfolio.domain.funding.FundingWithdrawalReceipt;
 import com.alphamath.portfolio.domain.funding.FundingWithdrawalRequest;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Service
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class SimulatedFundingAdapter implements FundingAdapter {
   @Override
   public boolean supports(String providerId) {

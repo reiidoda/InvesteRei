@@ -74,6 +74,14 @@ public class ExecutionController {
     return execution.simulateFill(userId(principal), id);
   }
 
+  @PostMapping("/intents/{id}/submit")
+  public ExecutionIntent submit(@RequestHeader(value = "X-User-Mfa", required = false) String mfa,
+                                @PathVariable String id,
+                                Principal principal) {
+    security.requireMfa(mfa, "execution submit");
+    return execution.submitIntent(userId(principal), id);
+  }
+
   private String userId(Principal principal) {
     return principal == null ? "unknown" : principal.getName();
   }

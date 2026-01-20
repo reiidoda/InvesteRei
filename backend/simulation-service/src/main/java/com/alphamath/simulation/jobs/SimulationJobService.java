@@ -143,13 +143,13 @@ public class SimulationJobService {
     if (queued.isEmpty()) return;
 
     for (SimulationQueue.QueuedJob job : queued) {
-      SimulationJobEntity entity = jobs.findById(job.jobId()).orElse(null);
+      SimulationJobEntity entity = jobs.findById(job.getJobId()).orElse(null);
       if (entity == null || !SimulationJobStatus.PENDING.name().equals(entity.getStatus())) {
-        queue.ack(List.of(job.recordId()));
+        queue.ack(List.of(job.getRecordId()));
         continue;
       }
 
-      submitJob(entity, job.recordId());
+      submitJob(entity, job.getRecordId());
     }
   }
 

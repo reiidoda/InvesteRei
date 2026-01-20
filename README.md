@@ -30,11 +30,11 @@ InvesteRei is designed to connect to real brokers, track live positions, and rec
 InvesteRei: automated investing that behaves like a professional system — but is as easy as pressing Approve.
 
 ## Architecture (Enterprise)
-- **Gateway**: Spring Cloud Gateway (routing, JWT validation, rate limiting placeholders)
+- **Gateway**: Spring Cloud Gateway (routing, JWT validation, Redis rate limiting)
 - **Auth Service**: User registration/login, JWT issuance
 - **Portfolio Service**: Optimization + risk metrics, trade proposals/intents, auto-invest orchestration, audit logs
 - **Simulation Service**: Backtesting jobs + results (async + persisted, versioned configs)
-- **AI Service**: Return + risk forecasting, baseline evaluation, model registry
+- **AI Service**: Return + risk forecasting, baseline evaluation, RL baseline policy, model registry
 - **Market Data**: Ingestion + query APIs (stored in Postgres via portfolio-service, cached quotes via Redis, CSV + HTTP providers + scheduled backfills)
 - **Reference Data**: Global instrument master, exchanges, currencies, FX rates
 - **Broker Integrations**: Connections, routing, positions, orders, multi-asset order legs
@@ -80,17 +80,17 @@ Broker parity matrix: `docs/broker-parity.md`.
 - Persistent domain tables: accounts, positions, proposals, orders, intents, fills, audit events
 - Auto-invest scheduler with idempotent runs and notifications
 - Market data ingestion endpoints + Redis quote cache + CSV/HTTP providers + scheduled backfills + historical queries
-- Market data licensing + entitlement enforcement toggle (GLOBAL / SYMBOL / EXCHANGE / ASSET_CLASS / REGION)
+- Market data licensing + entitlement enforcement toggle + license catalog support (GLOBAL / SYMBOL / EXCHANGE / ASSET_CLASS / REGION)
 - Reference data + exchange calendars + broker integration scaffolding (connections, positions, orders, previews, cancel/refresh)
 - Manual broker order review with AI/compliance guidance + cash/position impact
-- Funding rails: sources, deposits, withdrawals, and broker transfers (stub providers)
+- Funding rails: sources, deposits, withdrawals, and broker transfers with HTTP adapters + simulated fallback
 - Watchlists + alerts with AI enrichment hooks
-- Statements, ledger ingestion, tax lots, corporate actions, reconciliation, research notes + AI summaries
-- Notification preferences, destinations, and delivery audit trail with retry/backoff queue + bounce handling (SMTP + webhook providers available; SMS/push stub)
+- Statements, ledger ingestion, tax lots, corporate actions, reconciliation, statement feed import, research notes + AI summaries
+- Notification preferences, destinations, and delivery audit trail with retry/backoff queue + bounce handling (SMTP + webhook + HTTP SMS/push providers)
 - Simulation queue via Redis streams, versioned strategy configs, equity/drawdown curves
 - Simulation worker scaling with concurrency caps, retries, capacity reporting, and per-user quotas
 - AI risk-first endpoints, walk-forward evaluation, and model registry
-- Security scaffolding: roles in JWT, MFA enrollment stubs, audit exports, request tracing headers, MFA/RBAC enforcement toggles
+- Security scaffolding: roles in JWT, TOTP MFA with challenge tokens, audit exports, request tracing headers, MFA/RBAC enforcement toggles
 
 ## Quick start (Makefile)
 1. Install Docker + Docker Compose.
@@ -142,7 +142,13 @@ curl -s -X POST "$API_BASE/api/v1/auth/login" \
   -d '{"email":"dev@example.com","password":"changeme123"}'
 ```
 
-Set `TOKEN` to the `token` in the response.
+Set `TOKEN` to the `token` in the response. If the response includes `mfaRequired: true`, call:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/auth/mfa/verify" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"123456","mfaToken":"<mfaToken>"}'
+```
 
 3. Call `/api/v1/trade/account`
 
@@ -185,7 +191,14 @@ curl -s -X POST "$API_BASE/api/v1/execution/intents/{proposalId}" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-8. Simulate fill
+8. Submit to broker (requires live adapter config)
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/execution/intents/{intentId}/submit" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+9. Simulate fill
 
 ```bash
 curl -s -X POST "$API_BASE/api/v1/execution/intents/{intentId}/simulate-fill" \
@@ -224,7 +237,7 @@ export MARKETDATA_BACKFILL_DELAY_MS=3600000
 ---
 
 ## HTTP market data provider (commercial feed scaffold)
-Enable the HTTP provider and point it to a market data gateway or vendor adapter. The provider expects JSON responses with `quotes` or `prices` arrays, each containing `symbol`, `timestamp`, and price fields. API keys live in env vars only.
+Enable the HTTP provider and point it to a market data gateway or vendor adapter. The provider expects JSON responses with `quotes` or `prices` arrays by default, and supports JSON pointer mapping for non-standard payloads. API keys live in env vars only.
 
 Example config:
 
@@ -235,6 +248,8 @@ export MARKETDATA_HTTP_LATEST_QUOTES_PATH=/quotes/latest
 export MARKETDATA_HTTP_HISTORY_PATH=/history
 export MARKETDATA_HTTP_API_KEY_HEADER=X-API-KEY
 export MARKETDATA_HTTP_API_KEY=your_key_here
+export MARKETDATA_HTTP_MAPPING_LATEST_QUOTES_POINTER=/quotes
+export MARKETDATA_HTTP_MAPPING_HISTORY_PRICES_POINTER=/prices
 ```
 
 Backfill using the HTTP source:
@@ -273,6 +288,18 @@ curl -s -X POST "$API_BASE/api/v1/market-data/entitlements" \
   -d '{"entitlementType":"SYMBOL","entitlementValue":"AAPL","status":"ACTIVE","source":"starter_csv"}'
 ```
 
+Fetch a license catalog (HTTP provider):
+
+```bash
+curl -s "$API_BASE/api/v1/market-data/licenses/catalog" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```bash
+export MARKETDATA_LICENSE_CATALOG_HTTP_ENABLED=true
+export MARKETDATA_LICENSE_CATALOG_BASE_URL=https://licenses.example.com/api
+```
+
 ---
 
 ## Notification preferences + destinations
@@ -299,7 +326,7 @@ curl -s -X POST "$API_BASE/api/v1/notifications/preferences" \
 
 ---
 
-## Notification providers (SMTP + Webhook)
+## Notification providers (SMTP + Webhook + SMS/Push HTTP)
 Enable SMTP delivery:
 
 ```bash
@@ -323,18 +350,51 @@ export NOTIFICATION_WEBHOOK_SIGNATURE_SECRET=optional_shared_secret
 
 Webhook payload is JSON with `id`, `type`, `title`, `body`, `entityType`, `entityId`, `metadata`, `userId`, and `createdAt`.
 
+Enable SMS delivery (HTTP):
+
+```bash
+export NOTIFICATION_SMS_PROVIDER=http-sms
+export NOTIFICATION_SMS_HTTP_ENABLED=true
+export NOTIFICATION_SMS_BASE_URL=https://sms.example.com/api
+export NOTIFICATION_SMS_API_KEY=your_key_here
+```
+
+Enable push delivery (HTTP):
+
+```bash
+export NOTIFICATION_PUSH_PROVIDER=http-push
+export NOTIFICATION_PUSH_HTTP_ENABLED=true
+export NOTIFICATION_PUSH_BASE_URL=https://push.example.com/api
+export NOTIFICATION_PUSH_API_KEY=your_key_here
+```
+
 ---
 
 ## Security scaffolds (MFA + RBAC)
 - JWT now includes `roles` and `mfa` claims; gateway forwards `X-User-Roles` and `X-User-Mfa`.
 - Gateway injects `X-Request-Id` and `X-Trace-Id` for log correlation.
-- MFA endpoints are stubbed (verify code `000000`); enforcement is optional via env flags.
+- MFA uses TOTP with encrypted secrets; login returns a short-lived `mfaToken` when verification is required.
+- Complete MFA by calling `POST /api/v1/auth/mfa/verify` with `{ "code": "123456", "mfaToken": "..." }` to get an access token.
+- Set `AUTH_MFA_SECRET_KEY` (32+ bytes recommended) in production.
 - Audit export (`/api/v1/audit/events/export`) requires `ADMIN` or `AUDITOR` role.
 - Optional enforcement flags:
   - `SECURITY_MFA_ENFORCE=true` to require MFA on funding, broker orders, execution intents, and trade approvals.
   - `SECURITY_RBAC_ENFORCE=true` to require `ADMIN`/`DATA_ADMIN` on market-data and reference-data writes.
 - Admin role management: `POST /api/v1/auth/users/{id}/roles` (requires `ADMIN` token).
 - Bootstrap admins: set `AUTH_BOOTSTRAP_ADMINS=admin@example.com` to grant `ADMIN` on registration/login.
+
+---
+
+## Gateway rate limiting (Redis)
+Rate limiting is enabled at the gateway using Redis. Defaults are safe for local development and can be tuned via env vars:
+
+```bash
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
+export GATEWAY_RATELIMIT_REPLENISH=30
+export GATEWAY_RATELIMIT_BURST=60
+export GATEWAY_RATELIMIT_TOKENS=1
+```
 
 ---
 
@@ -346,6 +406,16 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"accountId":"acct-001","source":"broker_csv","csv":"date,action,symbol,quantity,price,amount,currency\n2024-01-05,BUY,AAPL,10,185.80,1858.00,USD","delimiter":",","hasHeader":true,"defaultCurrency":"USD","applyPositions":true,"rebuildTaxLots":true,"lotMethod":"FIFO"}'
+```
+
+## Broker statement feed (HTTP)
+Use a statement feed provider to ingest ledger entries from a custodian API and optionally reconcile positions/tax lots:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/statements/import-feed" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"providerId":"custodian_http","accountId":"acct-001","start":"2024-01-01T00:00:00Z","end":"2024-12-31T23:59:59Z","applyPositions":true,"rebuildTaxLots":true,"lotMethod":"FIFO"}'
 ```
 
 ## API overview (via Gateway)
@@ -375,6 +445,7 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `GET /api/v1/execution/intents`
 - `GET /api/v1/execution/intents/{id}`
 - `POST /api/v1/execution/intents/{proposalId}`
+- `POST /api/v1/execution/intents/{intentId}/submit`
 - `POST /api/v1/execution/intents/{intentId}/simulate-fill`
 
 ### Funding + Compliance
@@ -390,6 +461,7 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `GET /api/v1/funding/transfers`
 - `GET /api/v1/compliance/profile`
 - `POST /api/v1/compliance/profile`
+- `GET /api/v1/compliance/report`
 
 ### Market data
 - `POST /api/v1/market-data/prices`
@@ -397,6 +469,7 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `GET /api/v1/market-data/symbols`
 - `GET /api/v1/market-data/providers`
 - `GET /api/v1/market-data/licenses`
+- `GET /api/v1/market-data/licenses/catalog`
 - `POST /api/v1/market-data/licenses`
 - `GET /api/v1/market-data/entitlements`
 - `POST /api/v1/market-data/entitlements`
@@ -414,6 +487,8 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `POST /api/v1/reference/exchanges/{code}/calendar`
 - `GET /api/v1/reference/exchanges/{code}/calendar`
 - `GET /api/v1/reference/exchanges/{code}/calendar/next-open`
+- `POST /api/v1/reference/exchanges/{code}/calendar/sync`
+- `GET /api/v1/reference/calendar/providers`
 - `POST /api/v1/reference/currencies`
 - `GET /api/v1/reference/currencies`
 - `POST /api/v1/reference/fx-rates`
@@ -460,6 +535,8 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `GET /api/v1/statements/summary`
 - `POST /api/v1/statements/reconcile`
 - `POST /api/v1/statements/import`
+- `GET /api/v1/statements/providers`
+- `POST /api/v1/statements/import-feed`
 - `POST /api/v1/research/notes`
 - `GET /api/v1/research/notes`
 - `POST /api/v1/research/notes/{id}/ai`
@@ -475,6 +552,7 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `POST /api/v1/ai/predict`
 - `POST /api/v1/ai/risk`
 - `POST /api/v1/ai/evaluate`
+- `POST /api/v1/ai/rl/baseline`
 - `POST /api/v1/ai/models`
 - `GET /api/v1/ai/models`
 - `GET /api/v1/ai/models/{id}`
@@ -498,14 +576,11 @@ curl -s -X POST "$API_BASE/api/v1/statements/import" \
 - `GET /api/v1/audit/events`
 - `GET /api/v1/audit/events/export`
 
-## Remaining work (enterprise hardening)
-- Commercial market data integrations and vendor adapters (current: CSV + HTTP provider scaffold + manual POST ingestion)
-- Real broker execution and funding rails (current: stub adapters + simulated fills)
-- Production notification providers (SMTP + webhook available; SMS/push pending)
-- Broker statement ingest + reconciliation against custodial feeds (current: CSV import + ledger-based reconciliation)
-- Global data licensing catalogs + exchange calendar coverage per venue (current: manual calendar)
-- Simulation autoscaling for large backtest volumes (tenant quotas enforced; autoscaling pending)
-- Security/ops hardening: MFA enforcement + RBAC toggles added; metrics/tracing and compliance reporting pending
+## Production enablement notes
+- Provide vendor credentials and payload mappings for HTTP adapters (market data, brokers, funding, statements, exchange calendars).
+- Wire SMS/push providers and webhook signatures via the HTTP notification settings.
+- Use `/api/v1/simulation/capacity` or `/actuator/metrics` gauges to drive autoscaling in your scheduler.
+- Rotate production secrets (`JWT_SECRET`, `AUTH_MFA_SECRET_KEY`) and enable MFA/RBAC enforcement flags.
 
 ## Math Engine Coverage
 This repo includes a broad, extensible math engine: mean-variance optimization, risk parity, Kelly (approx), Black-Litterman (posterior), covariance estimators (sample/EWMA/shrinkage), and advanced risk metrics (Sharpe/Sortino/Drawdown/VaR/CVaR/Cornish-Fisher, etc.).

@@ -18,10 +18,21 @@ services:
   simulation: ${SIMULATION_URL:http://localhost:8083}
 
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT_MS:2000}
   cloud:
     gateway:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: ${GATEWAY_RATELIMIT_REPLENISH:30}
+            redis-rate-limiter.burstCapacity: ${GATEWAY_RATELIMIT_BURST:60}
+            redis-rate-limiter.requestedTokens: ${GATEWAY_RATELIMIT_TOKENS:1}
+            key-resolver: "#{@userKeyResolver}"
       routes:
         - id: auth
           uri: ${services.auth}

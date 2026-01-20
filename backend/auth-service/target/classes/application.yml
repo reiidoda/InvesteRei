@@ -21,8 +21,22 @@ management:
       exposure:
         include: health,info
 
+logging:
+  pattern:
+    level: "%5p [traceId=%X{traceId} requestId=%X{requestId}]"
+
 alphamath:
   jwt:
     secret: ${JWT_SECRET:dev_change_me}
     issuer: alphamath
     ttlMinutes: 240
+    mfaChallengeTtlMinutes: 5
+  auth:
+    bootstrapAdmins: ${AUTH_BOOTSTRAP_ADMINS:}
+    mfa:
+      issuer: InvesteRei
+      secretKey: ${AUTH_MFA_SECRET_KEY:dev_change_me_please_change}
+      digits: 6
+      periodSeconds: 30
+      skew: 1
+      algorithm: HmacSHA1

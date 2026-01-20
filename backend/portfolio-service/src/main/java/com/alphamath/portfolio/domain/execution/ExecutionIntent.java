@@ -19,6 +19,7 @@ public class ExecutionIntent {
   private AssetClass assetClass;
   private ExecutionStatus status;
   private List<ExecutionOrder> orders = new ArrayList<>();
+  private List<String> brokerOrderIds = new ArrayList<>();
   private Instant createdAt;
   private String note;
 }

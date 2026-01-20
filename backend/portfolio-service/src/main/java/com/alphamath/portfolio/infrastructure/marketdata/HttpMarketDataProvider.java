@@ -5,6 +5,8 @@ import com.alphamath.portfolio.domain.marketdata.MarketPrice;
 import com.alphamath.portfolio.domain.marketdata.MarketQuote;
 import com.alphamath.portfolio.domain.marketdata.PriceGranularity;
 import com.alphamath.portfolio.domain.marketdata.PriceRange;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -36,13 +38,17 @@ public class HttpMarketDataProvider implements MarketDataProvider {
   private final MarketDataHttpProperties properties;
   private final RestTemplate restTemplate;
   private final MarketDataRateLimiter rateLimiter;
+  private final ObjectMapper mapper;
 
-  public HttpMarketDataProvider(MarketDataHttpProperties properties, RestTemplateBuilder builder) {
+  public HttpMarketDataProvider(MarketDataHttpProperties properties,
+                                RestTemplateBuilder builder,
+                                ObjectMapper mapper) {
     this.properties = properties;
     Duration connectTimeout = Duration.ofMillis(Math.max(100, properties.getConnectTimeoutMs()));
     Duration readTimeout = Duration.ofMillis(Math.max(100, properties.getReadTimeoutMs()));
     this.restTemplate = builder.setConnectTimeout(connectTimeout).setReadTimeout(readTimeout).build();
     this.rateLimiter = new MarketDataRateLimiter(properties.getRateLimitPerMinute());
+    this.mapper = mapper;
   }
 
   public boolean isEnabled() {
@@ -75,15 +81,12 @@ public class HttpMarketDataProvider implements MarketDataProvider {
     }
     List<List<String>> batches = chunkSymbols(symbols, getMaxSymbolsPerRequest());
     for (List<String> batch : batches) {
-      HttpLatestQuotesResponse response = requestLatestQuotes(batch);
-      if (response == null || response.quotes == null) {
+      JsonNode response = requestLatestQuotes(batch);
+      if (response == null || response.isMissingNode()) {
         continue;
       }
-      for (HttpQuote quote : response.quotes) {
-        MarketQuote parsed = toQuote(quote);
-        if (parsed != null) {
-          out.put(parsed.symbol(), parsed);
-        }
+      for (MarketQuote parsed : parseQuotes(response)) {
+        out.put(parsed.symbol(), parsed);
       }
     }
     return out;
@@ -96,19 +99,15 @@ public class HttpMarketDataProvider implements MarketDataProvider {
       return List.of();
     }
     String normalized = normalizeSymbol(symbol);
-    HttpHistoryResponse response = requestHistory(normalized, range, granularity, limit);
-    if (response == null || response.prices == null || response.prices.isEmpty()) {
+    JsonNode response = requestHistory(normalized, range, granularity, limit);
+    if (response == null || response.isMissingNode()) {
       return List.of();
     }
 
     Instant start = range == null ? null : range.start();
     Instant end = range == null ? null : range.end();
     List<MarketPrice> out = new ArrayList<>();
-    for (HttpPrice price : response.prices) {
-      MarketPrice parsed = toPrice(price, normalized);
-      if (parsed == null) {
-        continue;
-      }
+    for (MarketPrice parsed : parsePrices(response, normalized)) {
       Instant ts = parsed.timestamp();
       if (start != null && ts.isBefore(start)) {
         continue;
@@ -128,42 +127,45 @@ public class HttpMarketDataProvider implements MarketDataProvider {
     return out;
   }
 
-  private HttpLatestQuotesResponse requestLatestQuotes(List<String> symbols) {
+  private JsonNode requestLatestQuotes(List<String> symbols) {
     if (!rateLimiter.tryAcquire()) {
       log.warn("HTTP market data rate limit reached");
-      return null;
+      return mapper.createObjectNode();
     }
     String url = buildUrl(properties.getLatestQuotesPath());
     if (url.isBlank()) {
-      return null;
+      return mapper.createObjectNode();
     }
     String joined = String.join(",", symbols);
     String uri = UriComponentsBuilder.fromHttpUrl(url)
         .queryParam("symbols", joined)
         .toUriString();
     try {
-      ResponseEntity<HttpLatestQuotesResponse> response = restTemplate.exchange(
-          uri, HttpMethod.GET, buildHeaders(), HttpLatestQuotesResponse.class);
+      ResponseEntity<String> response = restTemplate.exchange(
+          uri, HttpMethod.GET, buildHeaders(), String.class);
       if (!response.getStatusCode().is2xxSuccessful()) {
         log.warn("HTTP market data latest quotes failed: {}", response.getStatusCode());
-        return null;
+        return mapper.createObjectNode();
       }
-      return response.getBody();
+      String body = response.getBody() == null ? "{}" : response.getBody();
+      return mapper.readTree(body);
     } catch (RestClientException e) {
       log.warn("HTTP market data latest quotes failed: {}", e.getMessage());
-      return null;
+      return mapper.createObjectNode();
+    } catch (Exception e) {
+      return mapper.createObjectNode();
     }
   }
 
-  private HttpHistoryResponse requestHistory(String symbol, PriceRange range,
-                                             PriceGranularity granularity, int limit) {
+  private JsonNode requestHistory(String symbol, PriceRange range,
+                                  PriceGranularity granularity, int limit) {
     if (!rateLimiter.tryAcquire()) {
       log.warn("HTTP market data rate limit reached");
-      return null;
+      return mapper.createObjectNode();
     }
     String url = buildUrl(properties.getHistoryPath());
     if (url.isBlank()) {
-      return null;
+      return mapper.createObjectNode();
     }
     UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
         .queryParam("symbol", symbol);
@@ -182,16 +184,19 @@ public class HttpMarketDataProvider implements MarketDataProvider {
       builder.queryParam("limit", limit);
     }
     try {
-      ResponseEntity<HttpHistoryResponse> response = restTemplate.exchange(
-          builder.toUriString(), HttpMethod.GET, buildHeaders(), HttpHistoryResponse.class);
+      ResponseEntity<String> response = restTemplate.exchange(
+          builder.toUriString(), HttpMethod.GET, buildHeaders(), String.class);
       if (!response.getStatusCode().is2xxSuccessful()) {
         log.warn("HTTP market data history failed: {}", response.getStatusCode());
-        return null;
+        return mapper.createObjectNode();
       }
-      return response.getBody();
+      String body = response.getBody() == null ? "{}" : response.getBody();
+      return mapper.readTree(body);
     } catch (RestClientException e) {
       log.warn("HTTP market data history failed: {}", e.getMessage());
-      return null;
+      return mapper.createObjectNode();
+    } catch (Exception e) {
+      return mapper.createObjectNode();
     }
   }
 
@@ -247,50 +252,74 @@ public class HttpMarketDataProvider implements MarketDataProvider {
     return out;
   }
 
-  private MarketQuote toQuote(HttpQuote quote) {
-    if (quote == null) {
-      return null;
+  private List<MarketQuote> parseQuotes(JsonNode root) {
+    List<MarketQuote> out = new ArrayList<>();
+    MarketDataHttpProperties.Mapping mapping = properties.getMapping();
+    JsonNode quotes = nodeAt(root, mapping.getLatestQuotesPointer());
+    if (quotes == null || !quotes.isArray()) {
+      return out;
     }
-    String symbol = normalizeSymbol(quote.symbol);
-    if (symbol == null) {
-      return null;
+    MarketDataHttpProperties.QuoteMapping qmap = mapping.getQuote();
+    for (JsonNode node : quotes) {
+      String symbol = normalizeSymbol(text(nodeAt(node, qmap.getSymbol())));
+      if (symbol == null) {
+        continue;
+      }
+      Instant ts = parseTimestamp(nodeAt(node, qmap.getTimestamp()));
+      if (ts == null) {
+        continue;
+      }
+      Double price = readDouble(nodeAt(node, qmap.getPrice()));
+      if (!isFinite(price) || price <= 0.0) {
+        continue;
+      }
+      String source = text(nodeAt(node, qmap.getSource()));
+      if (source == null || source.isBlank()) {
+        source = getSource();
+      }
+      out.add(new MarketQuote(symbol, ts, price, source));
     }
-    Instant ts = parseTimestamp(quote.timestamp);
-    if (ts == null) {
-      return null;
-    }
-    Double price = quote.price;
-    if (!isFinite(price) || price <= 0.0) {
-      return null;
-    }
-    String source = quote.source == null || quote.source.isBlank() ? getSource() : quote.source.trim();
-    return new MarketQuote(symbol, ts, price, source);
+    return out;
   }
 
-  private MarketPrice toPrice(HttpPrice price, String fallbackSymbol) {
-    if (price == null) {
-      return null;
+  private List<MarketPrice> parsePrices(JsonNode root, String fallbackSymbol) {
+    List<MarketPrice> out = new ArrayList<>();
+    MarketDataHttpProperties.Mapping mapping = properties.getMapping();
+    JsonNode prices = nodeAt(root, mapping.getHistoryPricesPointer());
+    if (prices == null || !prices.isArray()) {
+      return out;
     }
-    String symbol = normalizeSymbol(price.symbol);
-    if (symbol == null) {
-      symbol = fallbackSymbol;
+    MarketDataHttpProperties.PriceMapping pmap = mapping.getPrice();
+    for (JsonNode node : prices) {
+      String symbol = normalizeSymbol(text(nodeAt(node, pmap.getSymbol())));
+      if (symbol == null) {
+        symbol = fallbackSymbol;
+      }
+      Instant ts = parseTimestamp(nodeAt(node, pmap.getTimestamp()));
+      if (ts == null) {
+        continue;
+      }
+      Double open = readDouble(nodeAt(node, pmap.getOpen()));
+      Double high = readDouble(nodeAt(node, pmap.getHigh()));
+      Double low = readDouble(nodeAt(node, pmap.getLow()));
+      Double close = readDouble(nodeAt(node, pmap.getClose()));
+      if (!isFinite(open) || !isFinite(high) || !isFinite(low) || !isFinite(close)) {
+        continue;
+      }
+      if (open <= 0.0 || high <= 0.0 || low <= 0.0 || close <= 0.0) {
+        continue;
+      }
+      if (high < Math.max(open, close) || low > Math.min(open, close)) {
+        continue;
+      }
+      Double volume = readDouble(nodeAt(node, pmap.getVolume()));
+      String source = text(nodeAt(node, pmap.getSource()));
+      if (source == null || source.isBlank()) {
+        source = getSource();
+      }
+      out.add(new MarketPrice(symbol, ts, open, high, low, close, volume, source));
     }
-    Instant ts = parseTimestamp(price.timestamp);
-    if (ts == null) {
-      return null;
-    }
-    if (!isFinite(price.open) || !isFinite(price.high) || !isFinite(price.low) || !isFinite(price.close)) {
-      return null;
-    }
-    if (price.open <= 0.0 || price.high <= 0.0 || price.low <= 0.0 || price.close <= 0.0) {
-      return null;
-    }
-    if (price.high < Math.max(price.open, price.close) || price.low > Math.min(price.open, price.close)) {
-      return null;
-    }
-    Double volume = price.volume;
-    String source = price.source == null || price.source.isBlank() ? getSource() : price.source.trim();
-    return new MarketPrice(symbol, ts, price.open, price.high, price.low, price.close, volume, source);
+    return out;
   }
 
   private String normalizeSymbol(String symbol) {
@@ -320,29 +349,63 @@ public class HttpMarketDataProvider implements MarketDataProvider {
     return value != null && Double.isFinite(value);
   }
 
-  public static class HttpLatestQuotesResponse {
-    public List<HttpQuote> quotes = new ArrayList<>();
+  private Instant parseTimestamp(JsonNode node) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    if (node.isNumber()) {
+      long value = node.asLong();
+      if (value > 100000000000L) {
+        return Instant.ofEpochMilli(value);
+      }
+      return Instant.ofEpochSecond(value);
+    }
+    if (node.isTextual()) {
+      return parseTimestamp(node.asText());
+    }
+    return null;
   }
 
-  public static class HttpHistoryResponse {
-    public List<HttpPrice> prices = new ArrayList<>();
+  private JsonNode nodeAt(JsonNode node, String pointer) {
+    if (node == null) {
+      return mapper.createObjectNode();
+    }
+    if (pointer == null || pointer.isBlank()) {
+      return node;
+    }
+    if (pointer.startsWith("/")) {
+      return node.at(pointer);
+    }
+    return node.path(pointer);
   }
 
-  public static class HttpQuote {
-    public String symbol;
-    public String timestamp;
-    public Double price;
-    public String source;
+  private String text(JsonNode node) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    if (node.isTextual()) {
+      return node.asText();
+    }
+    if (node.isNumber()) {
+      return node.asText();
+    }
+    return null;
   }
 
-  public static class HttpPrice {
-    public String symbol;
-    public String timestamp;
-    public Double open;
-    public Double high;
-    public Double low;
-    public Double close;
-    public Double volume;
-    public String source;
+  private Double readDouble(JsonNode node) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    if (node.isNumber()) {
+      return node.asDouble();
+    }
+    if (node.isTextual()) {
+      try {
+        return Double.parseDouble(node.asText());
+      } catch (NumberFormatException ignored) {
+        return null;
+      }
+    }
+    return null;
   }
 }

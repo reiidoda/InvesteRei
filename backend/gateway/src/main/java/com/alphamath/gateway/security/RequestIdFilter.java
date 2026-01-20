@@ -25,15 +25,17 @@ public class RequestIdFilter implements GlobalFilter {
     if (traceId == null || traceId.isBlank()) {
       traceId = requestId;
     }
+    final String reqId = requestId;
+    final String trId = traceId;
 
     ServerWebExchange mutated = exchange.mutate()
-        .request(r -> r.header("X-Request-Id", requestId)
-                       .header("X-Trace-Id", traceId))
+        .request(r -> r.header("X-Request-Id", reqId)
+                       .header("X-Trace-Id", trId))
         .build();
 
     mutated.getResponse().getHeaders().add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-Request-Id");
-    mutated.getResponse().getHeaders().add("X-Request-Id", requestId);
-    mutated.getResponse().getHeaders().add("X-Trace-Id", traceId);
+    mutated.getResponse().getHeaders().add("X-Request-Id", reqId);
+    mutated.getResponse().getHeaders().add("X-Trace-Id", trId);
     return chain.filter(mutated);
   }
 }

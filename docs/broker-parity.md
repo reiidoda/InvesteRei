@@ -16,7 +16,7 @@ This document maps common broker platform capabilities and how InvesteRei covers
 | Funding rails (ACH/wire) | Yes | Funding service scaffold + audit |
 | Statements/tax | Yes | Ledger + tax-lot scaffold planned |
 | Alerts/watchlists | Yes | Native alerts + watchlists + AI insights |
-| Research/news | Yes | Reference + AI summaries (provider pending) |
+| Research/news | Yes | Research notes + AI summaries |
 | Compliance/AML/KYC | Yes | Compliance profiles + audit logging |
 
 ## AI Enhancements Per Feature

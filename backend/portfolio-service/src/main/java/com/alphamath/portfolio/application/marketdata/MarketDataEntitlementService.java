@@ -82,7 +82,7 @@ public class MarketDataEntitlementService {
       entity.setCreatedAt(Instant.now());
     }
     entity.setProvider(req.getProvider().trim());
-    entity.setStatus(parseLicenseStatus(req.getStatus()));
+    entity.setStatus(parseLicenseStatus(req.getStatus()).name());
     entity.setPlan(req.getPlan());
     entity.setAssetClassesJson(JsonUtils.toJson(normalizeList(req.getAssetClasses())));
     entity.setExchangesJson(JsonUtils.toJson(normalizeList(req.getExchanges())));
@@ -121,7 +121,7 @@ public class MarketDataEntitlementService {
     }
     entity.setEntitlementType(req.getEntitlementType().name());
     entity.setEntitlementValue(normalizeValue(req.getEntitlementValue()));
-    entity.setStatus(parseEntitlementStatus(req.getStatus()));
+    entity.setStatus(parseEntitlementStatus(req.getStatus()).name());
     entity.setSource(req.getSource());
     entity.setUpdatedAt(Instant.now());
     entitlements.save(entity);
@@ -318,14 +318,14 @@ public class MarketDataEntitlementService {
     }
   }
 
-  private String parseLicenseStatus(String raw) {
+  private MarketDataLicenseStatus parseLicenseStatus(String raw) {
     if (raw == null || raw.isBlank()) {
-      return MarketDataLicenseStatus.ACTIVE.name();
+      return MarketDataLicenseStatus.ACTIVE;
     }
     try {
-      return MarketDataLicenseStatus.valueOf(raw.trim().toUpperCase(Locale.US)).name();
+      return MarketDataLicenseStatus.valueOf(raw.trim().toUpperCase(Locale.US));
     } catch (IllegalArgumentException e) {
-      return MarketDataLicenseStatus.ACTIVE.name();
+      return MarketDataLicenseStatus.ACTIVE;
     }
   }
 

@@ -42,4 +42,8 @@ public class ExecutionIntentEntity {
   @Lob
   @Column(name = "orders_json", nullable = false)
   private String ordersJson;
+
+  @Lob
+  @Column(name = "broker_order_ids_json")
+  private String brokerOrderIdsJson;
 }

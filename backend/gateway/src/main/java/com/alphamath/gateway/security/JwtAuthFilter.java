@@ -49,13 +49,23 @@ public class JwtAuthFilter implements GlobalFilter {
     String token = auth.substring("Bearer ".length()).trim();
     try {
       Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+      Object type = claims.get("type");
+      if (type == null || !"access".equals(type.toString())) {
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse().setComplete();
+      }
       String rolesHeader = rolesHeader(claims.get("roles"));
-      String mfaHeader = String.valueOf(claims.get("mfa", ""));
+      Object mfaClaim = claims.get("mfa");
+      String mfaHeader = mfaClaim == null ? "" : String.valueOf(mfaClaim);
+      Object uidClaim = claims.get("uid");
+      Object emailClaim = claims.get("email");
+      String userIdHeader = uidClaim == null ? "" : String.valueOf(uidClaim);
+      String emailHeader = emailClaim == null ? "" : String.valueOf(emailClaim);
 
       // You can propagate user info downstream as headers:
       ServerWebExchange mutated = exchange.mutate()
-          .request(r -> r.header("X-User-Id", String.valueOf(claims.get("uid", "")))
-                         .header("X-User-Email", String.valueOf(claims.get("email", "")))
+          .request(r -> r.header("X-User-Id", userIdHeader)
+                         .header("X-User-Email", emailHeader)
                          .header("X-User-Roles", rolesHeader)
                          .header("X-User-Mfa", mfaHeader))
           .build();
@@ -69,7 +79,8 @@ public class JwtAuthFilter implements GlobalFilter {
 
   private String rolesHeader(Object claim) {
     if (claim == null) return "";
-    if (claim instanceof java.util.List<?> list) {
+    if (claim instanceof java.util.List<?>) {
+      java.util.List<?> list = (java.util.List<?>) claim;
       return list.stream().map(Object::toString).reduce((a, b) -> a + "," + b).orElse("");
     }
     return claim.toString();
