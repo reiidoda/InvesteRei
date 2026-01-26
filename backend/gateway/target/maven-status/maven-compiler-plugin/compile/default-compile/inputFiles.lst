@@ -1,0 +1,5 @@
+/Users/aidei/Documents/github/InvesteRei/backend/gateway/src/main/java/com/alphamath/gateway/GatewayApplication.java
+/Users/aidei/Documents/github/InvesteRei/backend/gateway/src/main/java/com/alphamath/gateway/security/JwtAuthFilter.java
+/Users/aidei/Documents/github/InvesteRei/backend/gateway/src/main/java/com/alphamath/gateway/security/RateLimitConfig.java
+/Users/aidei/Documents/github/InvesteRei/backend/gateway/src/main/java/com/alphamath/gateway/security/RequestIdFilter.java
+/Users/aidei/Documents/github/InvesteRei/backend/gateway/src/main/java/com/alphamath/gateway/web/CorsConfig.java
