@@ -19,6 +19,13 @@ import { AuthStore } from './core/auth.store';
         <div class="row" style="align-items:center;">
           <a routerLink="/" style="text-decoration:none;">Portfolio Lab</a>
           <a routerLink="/auto-invest" style="text-decoration:none;">Auto-Invest</a>
+          <a routerLink="/banking" style="text-decoration:none;">Banking</a>
+          <a routerLink="/wealth-plan" style="text-decoration:none;">Wealth Plan</a>
+          <a routerLink="/screeners" style="text-decoration:none;">Screeners</a>
+          <a routerLink="/portfolio-builder" style="text-decoration:none;">Portfolio Builder</a>
+          <a routerLink="/rewards" style="text-decoration:none;">Rewards</a>
+          <a routerLink="/surveillance" style="text-decoration:none;">Surveillance</a>
+          <a routerLink="/best-execution" style="text-decoration:none;">Best Execution</a>
           <a routerLink="/risk" style="text-decoration:none;">Risk Lab</a>
           <a routerLink="/ai" style="text-decoration:none;">AI Forecast</a>
           <a routerLink="/simulation" style="text-decoration:none;">Simulation</a>

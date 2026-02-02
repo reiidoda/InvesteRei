@@ -11,6 +11,57 @@ import { API_BASE } from '../../core/api';
       <h2 style="margin-top:0;">Research</h2>
       <p class="small">Centralized research notes with AI summaries and scorecards.</p>
 
+      <h3>Proprietary Research Coverage</h3>
+      <div class="row">
+        <div style="flex:1;">
+          <label>Symbol</label>
+          <input [(ngModel)]="coverageSymbol" placeholder="AAPL" />
+        </div>
+        <div style="flex:1;">
+          <label>Rating</label>
+          <select [(ngModel)]="coverageRating" style="width:100%; border-radius:10px; border:1px solid #ddd; padding:10px;">
+            <option value="">Any</option>
+            <option value="OVERWEIGHT">Overweight</option>
+            <option value="NEUTRAL">Neutral</option>
+            <option value="UNDERWEIGHT">Underweight</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label>Focus List</label>
+          <select [(ngModel)]="coverageFocusList" style="width:100%; border-radius:10px; border:1px solid #ddd; padding:10px;">
+            <option value="">Any</option>
+            <option [ngValue]="true">Yes</option>
+            <option [ngValue]="false">No</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label>Limit</label>
+          <input [(ngModel)]="coverageLimit" type="number" />
+        </div>
+        <div style="flex:1; align-self:flex-end;">
+          <button class="secondary" (click)="loadCoverage()">Refresh Coverage</button>
+        </div>
+      </div>
+      <div style="height:6px;"></div>
+      <div class="small">{{coverageMsg()}}</div>
+
+      <div *ngIf="coverage().length" style="margin-top:10px;">
+        <div class="row" style="font-weight:600;">
+          <div style="flex:1;">Symbol</div>
+          <div style="flex:1;">Rating</div>
+          <div style="flex:1;">Target</div>
+          <div style="flex:1;">Focus</div>
+          <div style="flex:2;">Summary</div>
+        </div>
+        <div *ngFor="let c of coverage()" class="row" style="border-bottom:1px solid #eee; padding:6px 0;">
+          <div style="flex:1; font-weight:600;">{{c.symbol}}</div>
+          <div style="flex:1;">{{c.rating}}</div>
+          <div style="flex:1;">{{c.priceTarget || '-'}}</div>
+          <div style="flex:1;">{{c.focusList ? 'Yes' : 'No'}}</div>
+          <div style="flex:2;" class="small">{{c.summary || '-'}}</div>
+        </div>
+      </div>
+
       <h3>Create Note</h3>
       <div class="row">
         <div style="flex:1;">
@@ -120,11 +171,19 @@ export class ResearchComponent {
   sourceFilter = '';
   limit = 50;
 
+  coverageSymbol = '';
+  coverageRating = '';
+  coverageFocusList: any = '';
+  coverageLimit = 50;
+
   msg = signal('');
   notes = signal<any[]>([]);
+  coverage = signal<any[]>([]);
+  coverageMsg = signal('');
 
   constructor(private http: HttpClient) {
     this.load();
+    this.loadCoverage();
   }
 
   create() {
@@ -173,6 +232,19 @@ export class ResearchComponent {
     this.http.post<any[]>(`${API_BASE}/api/v1/research/notes/ai`, body).subscribe({
       next: (r) => { this.notes.set(r || []); this.msg.set('AI refreshed.'); },
       error: (e) => this.msg.set(e?.error?.message || 'Refresh failed')
+    });
+  }
+
+  loadCoverage() {
+    const params: any = {};
+    if (this.coverageSymbol) params.symbol = this.coverageSymbol;
+    if (this.coverageRating) params.rating = this.coverageRating;
+    if (this.coverageFocusList !== '') params.focusList = this.coverageFocusList;
+    if (this.coverageLimit > 0) params.limit = this.coverageLimit;
+    this.coverageMsg.set('Loading coverage...');
+    this.http.get<any[]>(`${API_BASE}/api/v1/research/coverage`, { params }).subscribe({
+      next: (r) => { this.coverage.set(r || []); this.coverageMsg.set(''); },
+      error: (e) => this.coverageMsg.set(e?.error?.message || 'Coverage load failed')
     });
   }
 }

@@ -8,4 +8,8 @@ public interface NotificationPreferenceRepository extends JpaRepository<Notifica
   List<NotificationPreferenceEntity> findByUserIdOrderByChannelAsc(String userId);
 
   NotificationPreferenceEntity findByUserIdAndChannel(String userId, String channel);
+
+  List<NotificationPreferenceEntity> findByUserIdAndOrgIdOrderByChannelAsc(String userId, String orgId);
+
+  NotificationPreferenceEntity findByUserIdAndOrgIdAndChannel(String userId, String orgId, String channel);
 }

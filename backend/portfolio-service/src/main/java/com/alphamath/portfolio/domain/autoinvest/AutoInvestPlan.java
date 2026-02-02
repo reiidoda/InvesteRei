@@ -16,8 +16,10 @@ import java.util.List;
 public class AutoInvestPlan {
   private String id;
   private String userId;
+  private String orgId;
   private String name;
   private AutoInvestPlanStatus status;
+  private AutoInvestGoalType goalType;
   private AutoInvestSchedule schedule;
   private String scheduleTimeUtc;
   private String scheduleDayOfWeek;
@@ -33,6 +35,8 @@ public class AutoInvestPlan {
   private Double minTradeValue;
   private Double maxTradePctOfEquity;
   private Double maxTurnover;
+  private Double advisoryFeeBpsAnnual;
+  private Double minimumBalance;
   private ExecutionMode executionMode;
   private Region region;
   private AssetClass assetClass;
@@ -45,4 +49,5 @@ public class AutoInvestPlan {
   private Instant createdAt;
   private Instant updatedAt;
   private Instant lastRunAt;
+  private Instant lastFeeChargedAt;
 }

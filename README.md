@@ -43,18 +43,26 @@ InvesteRei: automated investing that behaves like a professional system — but 
 - **Redis**: Quote cache + simulation job queue
 
 Broker parity matrix: `docs/broker-parity.md`.
+JPM-style parity spec: `docs/jpm-platform-parity.md`.
+Enterprise baseline: `docs/enterprise-features.md`.
 
 ## Web app (Angular 17)
 - Login + token handling
 - Portfolio Lab: optimizer inputs, constraints, and output weights
+- Portfolio Builder: diversification diagnostics (sector/asset exposure)
 - Risk Lab: advanced risk metrics (Sharpe, max drawdown, VaR, CVaR)
 - Market Data: ingest prices, cached latest quotes, provider history, CSV/HTTP backfills, stored returns
 - Auto-Invest: create plans, view run history, review notifications
+- Banking: instant internal transfers between cash + investing
 - Notification settings: preferences, destinations, delivery history
 - Watchlists: multi-asset lists with AI risk insights
 - Alerts: rule-based alerts with status + trigger workflow
 - Statements: ledger entries, statement summaries, tax lots, corporate actions, reconciliation
 - Research: curated notes with AI summaries and scores
+- Proprietary Research: analyst ratings, price targets, focus list (mock)
+- Screeners: filter by fundamentals + research signals
+- Wealth Plan: goal-based planning with probability of success
+- Rewards: new-money bonus offers (mock)
 - Simulation Lab: submit backtests and inspect job status + curves
 - AI Forecast: return/risk forecasts, walk-forward evaluation, model registry
 - Manual Trading Desk: broker accounts, order review (AI + compliance), order placement
@@ -84,13 +92,18 @@ Broker parity matrix: `docs/broker-parity.md`.
 - Reference data + exchange calendars + broker integration scaffolding (connections, positions, orders, previews, cancel/refresh)
 - Manual broker order review with AI/compliance guidance + cash/position impact
 - Funding rails: sources, deposits, withdrawals, and broker transfers with HTTP adapters + simulated fallback
+- Banking module with instant internal transfers between cash + investing
 - Watchlists + alerts with AI enrichment hooks
 - Statements, ledger ingestion, tax lots, corporate actions, reconciliation, statement feed import, research notes + AI summaries
+- Proprietary research coverage (ratings/targets/focus list) + fundamentals screeners
+- Portfolio Builder diversification diagnostics + Wealth Plan simulations
+- Rewards/bonuses scaffolding for new-money incentives
 - Notification preferences, destinations, and delivery audit trail with retry/backoff queue + bounce handling (SMTP + webhook + HTTP SMS/push providers)
 - Simulation queue via Redis streams, versioned strategy configs, equity/drawdown curves
 - Simulation worker scaling with concurrency caps, retries, capacity reporting, and per-user quotas
 - AI risk-first endpoints, walk-forward evaluation, and model registry
 - Security scaffolding: roles in JWT, TOTP MFA with challenge tokens, audit exports, request tracing headers, MFA/RBAC enforcement toggles
+- Auto-invest advisory fee and minimum balance enforcement (JPM-style defaults)
 
 ## Quick start (Makefile)
 1. Install Docker + Docker Compose.
@@ -131,7 +144,7 @@ export API_BASE="http://localhost:8080"
 ```bash
 curl -s -X POST "$API_BASE/api/v1/auth/register" \
   -H "Content-Type: application/json" \
-  -d '{"email":"dev@example.com","password":"changeme123"}'
+  -d '{"email":"dev@example.com","password":"changeme123","organizationName":"Dev Holdings"}'
 ```
 
 2. Login (capture token)
@@ -139,7 +152,7 @@ curl -s -X POST "$API_BASE/api/v1/auth/register" \
 ```bash
 curl -s -X POST "$API_BASE/api/v1/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"dev@example.com","password":"changeme123"}'
+  -d '{"email":"dev@example.com","password":"changeme123","orgSlug":"dev-holdings"}'
 ```
 
 Set `TOKEN` to the `token` in the response. If the response includes `mfaRequired: true`, call:
@@ -203,6 +216,43 @@ curl -s -X POST "$API_BASE/api/v1/execution/intents/{intentId}/submit" \
 ```bash
 curl -s -X POST "$API_BASE/api/v1/execution/intents/{intentId}/simulate-fill" \
   -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## JPM parity quick checks
+
+Banking account + transfer:
+
+```bash
+curl -s "$API_BASE/api/v1/banking/account" -H "Authorization: Bearer $TOKEN"
+
+curl -s -X POST "$API_BASE/api/v1/banking/transfer" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"direction":"TO_INVESTING","amount":100,"note":"instant transfer"}'
+```
+
+Proprietary research + screeners:
+
+```bash
+curl -s "$API_BASE/api/v1/research/coverage" -H "Authorization: Bearer $TOKEN"
+
+curl -s -X POST "$API_BASE/api/v1/screeners/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"assetClass":"EQUITY","rating":"OVERWEIGHT","limit":10}'
+```
+
+Wealth plan + rewards:
+
+```bash
+curl -s -X POST "$API_BASE/api/v1/wealth/plan" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"planType":"RETIREMENT","name":"Retirement Plan","startingBalance":25000,"targetBalance":500000,"monthlyContribution":800,"horizonYears":20}'
+
+curl -s "$API_BASE/api/v1/rewards/offers" -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -428,6 +478,21 @@ curl -s -X POST "$API_BASE/api/v1/statements/import-feed" \
 - `POST /api/v1/auth/mfa/verify`
 - `POST /api/v1/auth/mfa/disable`
 - `POST /api/v1/auth/users/{id}/roles`
+- `GET /api/v1/auth/orgs`
+- `POST /api/v1/auth/orgs`
+- `GET /api/v1/auth/orgs/{orgId}`
+- `GET /api/v1/auth/orgs/{orgId}/members`
+- `POST /api/v1/auth/orgs/{orgId}/members/{userId}/role`
+- `POST /api/v1/auth/orgs/{orgId}/invites`
+- `POST /api/v1/auth/orgs/invites/{token}/accept`
+- `GET /api/v1/auth/orgs/{orgId}/sso`
+- `POST /api/v1/auth/orgs/{orgId}/sso`
+- `DELETE /api/v1/auth/orgs/{orgId}/sso/{providerId}`
+- `GET /api/v1/auth/orgs/{orgId}/scim`
+- `POST /api/v1/auth/orgs/{orgId}/scim`
+- `POST /api/v1/auth/orgs/{orgId}/scim/rotate`
+
+Auth tokens now include org context (`org_id`, `org_roles`). Use `orgId` or `orgSlug` in `/auth/login` to select the tenant; the gateway forwards `X-Org-Id`/`X-Org-Roles` headers downstream.
 
 ### Portfolio + Risk
 - `POST /api/v1/portfolio/optimize`
@@ -564,6 +629,9 @@ curl -s -X POST "$API_BASE/api/v1/statements/import-feed" \
 - `POST /api/v1/auto-invest/plans/{id}/status`
 - `POST /api/v1/auto-invest/plans/{id}/run`
 - `GET /api/v1/auto-invest/plans/{id}/runs`
+- `GET /api/v1/auto-invest/model-portfolios`
+- `GET /api/v1/auto-invest/plans/{id}/fees`
+- `POST /api/v1/auto-invest/plans/{id}/fees/charge`
 - `GET /api/v1/notifications`
 - `POST /api/v1/notifications/{id}/read`
 - `GET /api/v1/notifications/preferences`
@@ -575,6 +643,27 @@ curl -s -X POST "$API_BASE/api/v1/statements/import-feed" \
 - `GET /api/v1/notifications/deliveries`
 - `GET /api/v1/audit/events`
 - `GET /api/v1/audit/events/export`
+
+### Banking + Rewards + Wealth
+- `GET /api/v1/banking/account`
+- `POST /api/v1/banking/transfer`
+- `GET /api/v1/banking/transfers`
+- `GET /api/v1/research/coverage`
+- `GET /api/v1/research/focus-list`
+- `POST /api/v1/screeners/query`
+- `POST /api/v1/portfolio/builder/analyze`
+- `POST /api/v1/wealth/plan`
+- `GET /api/v1/wealth/plan`
+- `GET /api/v1/wealth/plan/{id}`
+- `POST /api/v1/wealth/plan/{id}/simulate`
+- `GET /api/v1/rewards/offers`
+- `GET /api/v1/rewards/enrollments`
+- `POST /api/v1/rewards/enroll`
+- `POST /api/v1/rewards/evaluate`
+
+### Surveillance + Best Execution
+- `GET /api/v1/surveillance/alerts`
+- `GET /api/v1/best-execution`
 
 ## Production enablement notes
 - Provide vendor credentials and payload mappings for HTTP adapters (market data, brokers, funding, statements, exchange calendars).

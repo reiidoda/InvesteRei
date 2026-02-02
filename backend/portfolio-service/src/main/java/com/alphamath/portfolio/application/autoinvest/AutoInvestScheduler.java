@@ -14,5 +14,6 @@ public class AutoInvestScheduler {
   @Scheduled(fixedDelayString = "${alphamath.autoinvest.schedulerDelayMs:60000}")
   public void run() {
     autoInvest.runScheduled();
+    autoInvest.runAdvisoryFees();
   }
 }

@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface TradeProposalRepository extends JpaRepository<TradeProposalEntity, String> {
   List<TradeProposalEntity> findByUserIdOrderByCreatedAtDesc(String userId);
+  List<TradeProposalEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId);
 }

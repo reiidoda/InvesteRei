@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface ExecutionIntentRepository extends JpaRepository<ExecutionIntentEntity, String> {
   List<ExecutionIntentEntity> findByUserIdOrderByCreatedAtDesc(String userId);
+  List<ExecutionIntentEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId);
 }

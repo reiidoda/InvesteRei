@@ -25,6 +25,7 @@ import com.alphamath.portfolio.infrastructure.persistence.ExecutionFillRepositor
 import com.alphamath.portfolio.infrastructure.persistence.ExecutionIntentEntity;
 import com.alphamath.portfolio.infrastructure.persistence.ExecutionIntentRepository;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -46,17 +47,20 @@ public class ExecutionService {
   private final ExecutionFillRepository fills;
   private final BrokerIntegrationService brokers;
   private final AuditService audit;
+  private final TenantContext tenantContext;
 
   public ExecutionService(BrokerAccountRepository accounts,
                           ExecutionIntentRepository intents,
                           ExecutionFillRepository fills,
                           BrokerIntegrationService brokers,
-                          AuditService audit) {
+                          AuditService audit,
+                          TenantContext tenantContext) {
     this.accounts = accounts;
     this.intents = intents;
     this.fills = fills;
     this.brokers = brokers;
     this.audit = audit;
+    this.tenantContext = tenantContext;
   }
 
   public List<BrokerProviderInfo> listProviders(Region region, AssetClass assetClass) {
@@ -94,14 +98,22 @@ public class ExecutionService {
 
   public List<BrokerAccount> listAccounts(String userId) {
     List<BrokerAccount> out = new ArrayList<>();
-    for (BrokerAccountEntity entity : accounts.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<BrokerAccountEntity> rows = orgId == null
+        ? accounts.findByUserIdOrderByCreatedAtDesc(userId)
+        : accounts.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (BrokerAccountEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
   }
 
   public boolean hasLinkedAccount(String userId, Region region, AssetClass assetClass, String providerPreference) {
-    for (BrokerAccountEntity entity : accounts.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<BrokerAccountEntity> rows = orgId == null
+        ? accounts.findByUserIdOrderByCreatedAtDesc(userId)
+        : accounts.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (BrokerAccountEntity entity : rows) {
       BrokerAccount acct = toDto(entity);
       if (providerPreference != null && !providerPreference.isBlank() && !acct.getProviderId().equals(providerPreference)) {
         continue;
@@ -151,7 +163,8 @@ public class ExecutionService {
 
   public ExecutionIntent getIntent(String userId, String id) {
     ExecutionIntentEntity entity = intents.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution intent not found");
     }
     return toDto(entity);
@@ -159,7 +172,11 @@ public class ExecutionService {
 
   public List<ExecutionIntent> listIntents(String userId) {
     List<ExecutionIntent> out = new ArrayList<>();
-    for (ExecutionIntentEntity entity : intents.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<ExecutionIntentEntity> rows = orgId == null
+        ? intents.findByUserIdOrderByCreatedAtDesc(userId)
+        : intents.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (ExecutionIntentEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
@@ -167,7 +184,8 @@ public class ExecutionService {
 
   public ExecutionIntent submitIntent(String userId, String id) {
     ExecutionIntentEntity entity = intents.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution intent not found");
     }
     ExecutionIntent intent = toDto(entity);
@@ -212,6 +230,7 @@ public class ExecutionService {
         fill.setId(UUID.randomUUID().toString());
         fill.setIntentId(intent.getId());
         fill.setUserId(intent.getUserId());
+        fill.setOrgId(tenantContext.getOrgId());
         fill.setProposalId(intent.getProposalId());
         fill.setSymbol(execOrder == null ? null : execOrder.getSymbol());
         fill.setSide(brokerOrder.getSide() == null ? "BUY" : brokerOrder.getSide().name());
@@ -257,6 +276,7 @@ public class ExecutionService {
       fill.setId(UUID.randomUUID().toString());
       fill.setIntentId(entity.getId());
       fill.setUserId(entity.getUserId());
+      fill.setOrgId(tenantContext.getOrgId());
       fill.setProposalId(entity.getProposalId());
       fill.setSymbol(order.getSymbol());
       fill.setSide(order.getSide().name());
@@ -288,7 +308,11 @@ public class ExecutionService {
   }
 
   private BrokerAccount findLinkedAccount(String userId, String providerId, Region region, AssetClass assetClass) {
-    for (BrokerAccountEntity entity : accounts.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<BrokerAccountEntity> rows = orgId == null
+        ? accounts.findByUserIdOrderByCreatedAtDesc(userId)
+        : accounts.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (BrokerAccountEntity entity : rows) {
       BrokerAccount acct = toDto(entity);
       if (!acct.getProviderId().equals(providerId)) continue;
       if (region != null && acct.getRegion() != region) continue;
@@ -328,6 +352,10 @@ public class ExecutionService {
         List.of(Region.US),
         List.of(AssetClass.EQUITY, AssetClass.ETF, AssetClass.OPTIONS),
         List.of("options_support"), 78));
+    out.add(provider("jp_morgan", "JP Morgan",
+        List.of(Region.US, Region.EU, Region.UK),
+        List.of(AssetClass.EQUITY, AssetClass.ETF, AssetClass.FIXED_INCOME, AssetClass.MUTUAL_FUND, AssetClass.OPTIONS),
+        List.of("managed_portfolios", "banking", "research", "fractional", "instant_transfer"), 88));
     out.add(provider("coinbase_prime", "Coinbase Prime",
         List.of(Region.GLOBAL),
         List.of(AssetClass.CRYPTO),
@@ -361,6 +389,7 @@ public class ExecutionService {
     BrokerAccountEntity entity = new BrokerAccountEntity();
     entity.setId(acct.getId());
     entity.setUserId(acct.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setProviderId(acct.getProviderId());
     entity.setProviderName(acct.getProviderName());
     entity.setBrokerConnectionId(acct.getBrokerConnectionId());
@@ -421,6 +450,7 @@ public class ExecutionService {
     ExecutionIntentEntity entity = new ExecutionIntentEntity();
     entity.setId(intent.getId());
     entity.setUserId(intent.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setProposalId(intent.getProposalId());
     entity.setProviderId(intent.getProviderId());
     entity.setProviderName(intent.getProviderName());

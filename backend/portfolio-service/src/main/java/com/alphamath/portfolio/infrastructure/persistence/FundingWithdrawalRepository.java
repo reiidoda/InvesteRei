@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface FundingWithdrawalRepository extends JpaRepository<FundingWithdrawalEntity, String> {
   List<FundingWithdrawalEntity> findByUserIdOrderByCreatedAtDesc(String userId);
+  List<FundingWithdrawalEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId);
 }

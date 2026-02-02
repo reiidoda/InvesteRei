@@ -13,6 +13,19 @@ import { API_BASE } from '../../core/api';
         AI proposes trades. You approve to execute. Live mode is scaffolded only.
       </p>
 
+      <h3>Model Portfolios (JPM-Style Mock)</h3>
+      <div class="row">
+        <button class="secondary" (click)="loadModelPortfolios()">Refresh Models</button>
+      </div>
+      <div *ngIf="modelPortfolios().length" style="margin-top:8px;">
+        <div *ngFor="let m of modelPortfolios()" style="border:1px solid #eee; border-radius:10px; padding:10px; margin-bottom:8px;">
+          <div><strong>{{m.name}}</strong> <span class="small">({{m.riskLevel}})</span></div>
+          <div class="small">{{m.description}}</div>
+          <div class="small" style="margin-top:6px;">Allocations:</div>
+          <div class="small">{{m.allocations | json}}</div>
+        </div>
+      </div>
+
       <h3>Auto-Invest Orchestrator</h3>
       <p class="small">
         Create schedules, compute target weights from market data, and generate proposals when drift triggers.
@@ -43,6 +56,25 @@ import { API_BASE } from '../../core/api';
             <option value="THURSDAY">Thu</option>
             <option value="FRIDAY">Fri</option>
           </select>
+        </div>
+      </div>
+      <div style="height:10px;"></div>
+      <div class="row">
+        <div style="flex:1;">
+          <label>Goal Type</label>
+          <select [(ngModel)]="planGoalType" style="width:100%; border-radius:10px; border:1px solid #ddd; padding:10px;">
+            <option value="RETIREMENT">Retirement</option>
+            <option value="GENERAL_INVESTING">General Investing</option>
+            <option value="MAJOR_PURCHASE">Major Purchase</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label>Minimum Balance</label>
+          <input [(ngModel)]="planMinimumBalance" type="number" />
+        </div>
+        <div style="flex:1;">
+          <label>Advisory Fee (bps/yr)</label>
+          <input [(ngModel)]="planAdvisoryFeeBps" type="number" step="1" />
         </div>
       </div>
       <div style="height:10px;"></div>
@@ -123,6 +155,8 @@ import { API_BASE } from '../../core/api';
             <option value="EQUITY">Equity</option>
             <option value="ETF">ETF</option>
             <option value="FIXED_INCOME">Fixed Income</option>
+            <option value="MUTUAL_FUND">Mutual Fund</option>
+            <option value="OPTIONS">Options</option>
             <option value="FX">FX</option>
             <option value="CRYPTO">Crypto</option>
           </select>
@@ -154,19 +188,22 @@ import { API_BASE } from '../../core/api';
         <div><strong>Plans</strong></div>
         <div *ngFor="let p of plans()" style="border:1px solid #eee; border-radius:12px; padding:12px; margin-top:8px;">
           <div class="row">
-            <div style="flex:2;"><strong>{{p.name}}</strong> <span class="small">({{p.status}})</span></div>
-            <div style="flex:1;">{{p.schedule}} @ {{p.scheduleTimeUtc || 'anytime'}}</div>
-            <div style="flex:1;">Drift: {{p.driftThreshold}}</div>
-          </div>
-          <div class="small">Symbols: {{p.symbols?.join(', ')}}</div>
-          <div class="small">Last Run: {{p.lastRunAt || 'never'}}</div>
-          <div class="row" style="margin-top:6px;">
-            <button class="secondary" (click)="selectPlan(p.id)">Runs</button>
-            <button class="secondary" (click)="runPlan(p.id)">Run Now</button>
-            <button class="secondary" *ngIf="p.status === 'ACTIVE'" (click)="setPlanStatus(p.id, 'PAUSED')">Pause</button>
-            <button class="secondary" *ngIf="p.status === 'PAUSED'" (click)="setPlanStatus(p.id, 'ACTIVE')">Resume</button>
-          </div>
+          <div style="flex:2;"><strong>{{p.name}}</strong> <span class="small">({{p.status}})</span></div>
+          <div style="flex:1;">{{p.schedule}} @ {{p.scheduleTimeUtc || 'anytime'}}</div>
+          <div style="flex:1;">Drift: {{p.driftThreshold}}</div>
         </div>
+        <div class="small">Symbols: {{p.symbols?.join(', ')}}</div>
+        <div class="small">Goal: {{p.goalType || 'GENERAL_INVESTING'}} • Min: {{p.minimumBalance || 0}} • Fee: {{p.advisoryFeeBpsAnnual || 0}} bps</div>
+        <div class="small">Last Run: {{p.lastRunAt || 'never'}}</div>
+        <div class="row" style="margin-top:6px;">
+          <button class="secondary" (click)="selectPlan(p.id)">Runs</button>
+          <button class="secondary" (click)="runPlan(p.id)">Run Now</button>
+          <button class="secondary" (click)="loadFees(p.id)">Fees</button>
+          <button class="secondary" (click)="chargeFee(p.id)">Charge Fee</button>
+          <button class="secondary" *ngIf="p.status === 'ACTIVE'" (click)="setPlanStatus(p.id, 'PAUSED')">Pause</button>
+          <button class="secondary" *ngIf="p.status === 'PAUSED'" (click)="setPlanStatus(p.id, 'ACTIVE')">Resume</button>
+        </div>
+      </div>
       </div>
 
       <div *ngIf="selectedPlanId" style="margin-top: 12px;">
@@ -175,6 +212,11 @@ import { API_BASE } from '../../core/api';
           <button class="secondary" (click)="loadRuns(selectedPlanId)">Refresh Runs</button>
         </div>
         <pre *ngIf="autoRuns().length" style="margin-top:8px;">{{ autoRuns() | json }}</pre>
+      </div>
+
+      <div *ngIf="autoFees().length" style="margin-top: 12px;">
+        <div><strong>Fees ({{selectedPlanId}})</strong></div>
+        <pre style="margin-top:8px;">{{ autoFees() | json }}</pre>
       </div>
 
       <div style="height: 18px;"></div>
@@ -828,6 +870,7 @@ export class AutoInvestComponent {
   planSchedule = 'DAILY';
   planScheduleTime = '09:30';
   planScheduleDay = 'MONDAY';
+  planGoalType = 'GENERAL_INVESTING';
   planDriftThreshold = 0.05;
   planLookback = 90;
   planUseMarketData = true;
@@ -837,6 +880,8 @@ export class AutoInvestComponent {
   planMaxWeight = 0.6;
   planMaxTurnover = 0.7;
   planMinTradeValue = 10;
+  planMinimumBalance = 500;
+  planAdvisoryFeeBps = 35;
   planExecutionMode = 'PAPER';
   planRegion = 'US';
   planAssetClass = 'EQUITY';
@@ -846,7 +891,7 @@ export class AutoInvestComponent {
 
   prefChannel = 'EMAIL';
   prefEnabled = true;
-  prefTypesText = 'AUTO_INVEST_PROPOSAL,ALERT_TRIGGERED';
+  prefTypesText = 'AUTO_INVEST_PROPOSAL,AUTO_INVEST_FEE,ALERT_TRIGGERED';
   prefQuietStart: number | null = null;
   prefQuietEnd: number | null = null;
   prefTimezone = 'UTC';
@@ -908,6 +953,8 @@ export class AutoInvestComponent {
   account = signal<any | null>(null);
   plans = signal<any[]>([]);
   autoRuns = signal<any[]>([]);
+  autoFees = signal<any[]>([]);
+  modelPortfolios = signal<any[]>([]);
   notifications = signal<any[]>([]);
   preferences = signal<any[]>([]);
   destinations = signal<any[]>([]);
@@ -930,6 +977,7 @@ export class AutoInvestComponent {
   deliveryMsg = signal('');
 
   constructor(private http: HttpClient) {
+    this.loadModelPortfolios();
     this.loadProviders();
     this.refreshSources();
     this.refreshWithdrawals();
@@ -952,11 +1000,19 @@ export class AutoInvestComponent {
     });
   }
 
+  loadModelPortfolios() {
+    this.http.get<any[]>(`${API_BASE}/api/v1/auto-invest/model-portfolios`).subscribe({
+      next: (r) => this.modelPortfolios.set(r || []),
+      error: () => {}
+    });
+  }
+
   createPlan() {
     this.autoInvestMsg.set('Creating plan...');
     const symbols = this.planSymbolsText.split(',').map(s => s.trim()).filter(Boolean);
     const body = {
       name: this.planName,
+      goalType: this.planGoalType,
       symbols,
       schedule: this.planSchedule,
       scheduleTimeUtc: this.planScheduleTime,
@@ -970,6 +1026,8 @@ export class AutoInvestComponent {
       maxWeight: Number(this.planMaxWeight),
       maxTurnover: Number(this.planMaxTurnover),
       minTradeValue: Number(this.planMinTradeValue),
+      minimumBalance: Number(this.planMinimumBalance),
+      advisoryFeeBpsAnnual: Number(this.planAdvisoryFeeBps),
       executionMode: this.planExecutionMode,
       region: this.planRegion,
       assetClass: this.planAssetClass,
@@ -1007,12 +1065,28 @@ export class AutoInvestComponent {
   selectPlan(id: string) {
     this.selectedPlanId = id;
     this.loadRuns(id);
+    this.loadFees(id);
   }
 
   loadRuns(id: string) {
     this.http.get<any[]>(`${API_BASE}/api/v1/auto-invest/plans/${id}/runs`).subscribe({
       next: (r) => this.autoRuns.set(r || []),
       error: (e) => this.autoInvestMsg.set(e?.error?.message || 'Load runs failed')
+    });
+  }
+
+  loadFees(id: string) {
+    this.http.get<any[]>(`${API_BASE}/api/v1/auto-invest/plans/${id}/fees`).subscribe({
+      next: (r) => this.autoFees.set(r || []),
+      error: (e) => this.autoInvestMsg.set(e?.error?.message || 'Load fees failed')
+    });
+  }
+
+  chargeFee(id: string) {
+    this.autoInvestMsg.set('Charging advisory fee...');
+    this.http.post<any>(`${API_BASE}/api/v1/auto-invest/plans/${id}/fees/charge`, {}).subscribe({
+      next: (r) => { this.autoInvestMsg.set('Fee processed.'); this.autoFees.set([r, ...this.autoFees()]); },
+      error: (e) => this.autoInvestMsg.set(e?.error?.message || 'Fee charge failed')
     });
   }
 

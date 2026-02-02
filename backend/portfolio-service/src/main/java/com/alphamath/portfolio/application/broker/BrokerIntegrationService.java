@@ -4,6 +4,7 @@ import com.alphamath.portfolio.application.audit.AuditService;
 import com.alphamath.portfolio.application.compliance.ComplianceService;
 import com.alphamath.portfolio.application.marketdata.LatestQuotesResult;
 import com.alphamath.portfolio.application.marketdata.MarketDataService;
+import com.alphamath.portfolio.application.policy.ProviderPolicyService;
 import com.alphamath.portfolio.domain.broker.BrokerConnection;
 import com.alphamath.portfolio.domain.broker.BrokerConnectionStatus;
 import com.alphamath.portfolio.domain.broker.BrokerDefinition;
@@ -34,6 +35,7 @@ import com.alphamath.portfolio.infrastructure.persistence.BrokerOrderRepository;
 import com.alphamath.portfolio.infrastructure.persistence.BrokerPositionEntity;
 import com.alphamath.portfolio.infrastructure.persistence.BrokerPositionRepository;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -64,6 +66,8 @@ public class BrokerIntegrationService {
   private final AiForecastService aiForecast;
   private final TradingPolicyProperties tradingPolicy;
   private final AuditService audit;
+  private final ProviderPolicyService providerPolicy;
+  private final TenantContext tenantContext;
   private final double feeBps;
 
   public BrokerIntegrationService(BrokerCatalog catalog,
@@ -78,6 +82,8 @@ public class BrokerIntegrationService {
                                   AiForecastService aiForecast,
                                   TradingPolicyProperties tradingPolicy,
                                   AuditService audit,
+                                  ProviderPolicyService providerPolicy,
+                                  TenantContext tenantContext,
                                   @Value("${alphamath.platform.feeBps:50}") double feeBps) {
     this.catalog = catalog;
     this.adapters = adapters;
@@ -91,6 +97,8 @@ public class BrokerIntegrationService {
     this.aiForecast = aiForecast;
     this.tradingPolicy = tradingPolicy;
     this.audit = audit;
+    this.providerPolicy = providerPolicy;
+    this.tenantContext = tenantContext;
     this.feeBps = Math.max(0.0, feeBps);
   }
 
@@ -122,7 +130,11 @@ public class BrokerIntegrationService {
 
   public List<BrokerConnection> listConnections(String userId) {
     List<BrokerConnection> out = new ArrayList<>();
-    for (BrokerConnectionEntity entity : connections.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<BrokerConnectionEntity> rows = orgId == null
+        ? connections.findByUserIdOrderByCreatedAtDesc(userId)
+        : connections.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (BrokerConnectionEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
@@ -130,7 +142,10 @@ public class BrokerIntegrationService {
 
   @Transactional
   public BrokerSyncResult syncConnection(String userId, String connectionId) {
-    BrokerConnectionEntity entity = connections.findByIdAndUserId(connectionId, userId);
+    String orgId = tenantContext.getOrgId();
+    BrokerConnectionEntity entity = orgId == null
+        ? connections.findByIdAndUserId(connectionId, userId)
+        : connections.findByIdAndUserIdAndOrgId(connectionId, userId, orgId);
     if (entity == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Connection not found");
     }
@@ -154,8 +169,14 @@ public class BrokerIntegrationService {
 
     List<String> accountIds = new ArrayList<>(accountIdMap.values());
     for (String accountId : accountIds) {
-      positions.deleteByUserIdAndBrokerAccountId(userId, accountId);
-      List<BrokerOrderEntity> existingOrders = orders.findByUserIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, accountId);
+      if (orgId == null) {
+        positions.deleteByUserIdAndBrokerAccountId(userId, accountId);
+      } else {
+        positions.deleteByUserIdAndOrgIdAndBrokerAccountId(userId, orgId, accountId);
+      }
+      List<BrokerOrderEntity> existingOrders = orgId == null
+          ? orders.findByUserIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, accountId)
+          : orders.findByUserIdAndOrgIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, orgId, accountId);
       for (BrokerOrderEntity row : existingOrders) {
         orderLegs.deleteByOrderId(row.getId());
       }
@@ -199,7 +220,11 @@ public class BrokerIntegrationService {
 
   public List<BrokerAccount> listAccounts(String userId) {
     List<BrokerAccount> out = new ArrayList<>();
-    for (BrokerAccountEntity entity : accounts.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<BrokerAccountEntity> rows = orgId == null
+        ? accounts.findByUserIdOrderByCreatedAtDesc(userId)
+        : accounts.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (BrokerAccountEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
@@ -207,11 +232,15 @@ public class BrokerIntegrationService {
 
   public List<BrokerPosition> listPositions(String userId, String accountId) {
     BrokerAccountEntity account = accounts.findById(accountId).orElse(null);
-    if (account == null || !userId.equals(account.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (account == null || !userId.equals(account.getUserId()) || (orgId != null && !orgId.equals(account.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
     }
     List<BrokerPosition> out = new ArrayList<>();
-    for (BrokerPositionEntity entity : positions.findByUserIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, accountId)) {
+    List<BrokerPositionEntity> rows = orgId == null
+        ? positions.findByUserIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, accountId)
+        : positions.findByUserIdAndOrgIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, orgId, accountId);
+    for (BrokerPositionEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
@@ -219,11 +248,15 @@ public class BrokerIntegrationService {
 
   public List<BrokerOrder> listOrders(String userId, String accountId) {
     BrokerAccountEntity account = accounts.findById(accountId).orElse(null);
-    if (account == null || !userId.equals(account.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (account == null || !userId.equals(account.getUserId()) || (orgId != null && !orgId.equals(account.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
     }
     List<BrokerOrder> out = new ArrayList<>();
-    for (BrokerOrderEntity entity : orders.findByUserIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, accountId)) {
+    List<BrokerOrderEntity> rows = orgId == null
+        ? orders.findByUserIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, accountId)
+        : orders.findByUserIdAndOrgIdAndBrokerAccountIdOrderByUpdatedAtDesc(userId, orgId, accountId);
+    for (BrokerOrderEntity entity : rows) {
       List<BrokerOrderLegEntity> legs = orderLegs.findByOrderId(entity.getId());
       out.add(toDto(entity, legs));
     }
@@ -233,16 +266,19 @@ public class BrokerIntegrationService {
   @Transactional
   public BrokerOrder placeOrder(String userId, String accountId, BrokerOrderRequest request) {
     BrokerAccountEntity account = accounts.findById(accountId).orElse(null);
-    if (account == null || !userId.equals(account.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (account == null || !userId.equals(account.getUserId()) || (orgId != null && !orgId.equals(account.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
     }
+    providerPolicy.enforceAssetClass(account.getProviderId(), request.getAssetClass());
     String clientOrderId = request.getClientOrderId();
     if (clientOrderId != null) {
       clientOrderId = clientOrderId.trim();
     }
     if (clientOrderId != null && !clientOrderId.isBlank()) {
-      BrokerOrderEntity existing = orders.findByUserIdAndBrokerAccountIdAndClientOrderId(
-          userId, accountId, clientOrderId);
+      BrokerOrderEntity existing = orgId == null
+          ? orders.findByUserIdAndBrokerAccountIdAndClientOrderId(userId, accountId, clientOrderId)
+          : orders.findByUserIdAndOrgIdAndBrokerAccountIdAndClientOrderId(userId, orgId, accountId, clientOrderId);
       if (existing != null) {
         List<BrokerOrderLegEntity> legs = orderLegs.findByOrderId(existing.getId());
         return toDto(existing, legs);
@@ -263,8 +299,9 @@ public class BrokerIntegrationService {
       orders.save(entity);
     } catch (DataIntegrityViolationException ex) {
       if (clientOrderId != null && !clientOrderId.isBlank()) {
-        BrokerOrderEntity existing = orders.findByUserIdAndBrokerAccountIdAndClientOrderId(
-            userId, accountId, clientOrderId);
+        BrokerOrderEntity existing = orgId == null
+            ? orders.findByUserIdAndBrokerAccountIdAndClientOrderId(userId, accountId, clientOrderId)
+            : orders.findByUserIdAndOrgIdAndBrokerAccountIdAndClientOrderId(userId, orgId, accountId, clientOrderId);
         if (existing != null) {
           List<BrokerOrderLegEntity> legs = orderLegs.findByOrderId(existing.getId());
           return toDto(existing, legs);
@@ -285,9 +322,11 @@ public class BrokerIntegrationService {
 
   public BrokerOrderPreview previewOrder(String userId, String accountId, BrokerOrderRequest request) {
     BrokerAccountEntity account = accounts.findById(accountId).orElse(null);
-    if (account == null || !userId.equals(account.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (account == null || !userId.equals(account.getUserId()) || (orgId != null && !orgId.equals(account.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
     }
+    providerPolicy.enforceAssetClass(account.getProviderId(), request.getAssetClass());
     BrokerConnection connection = resolveConnection(userId, account);
     BrokerAdapter adapter = adapterFor(account.getProviderId());
     BrokerOrderPreview preview = adapter.previewOrder(connection, request);
@@ -309,7 +348,8 @@ public class BrokerIntegrationService {
       preview.setEstimatedNotional(notional.grossNotional);
     }
     if (preview.getEstimatedFees() == null || preview.getEstimatedFees() < 0.0) {
-      preview.setEstimatedFees(estimateFees(notional.grossNotional));
+      preview.setEstimatedFees(estimateFees(account.getProviderId(), request.getAssetClass(),
+          request.getQuantity(), notional.grossNotional));
     }
     if (preview.getEstimatedTotal() == null || preview.getEstimatedTotal() <= 0.0) {
       preview.setEstimatedTotal(preview.getEstimatedNotional() + preview.getEstimatedFees());
@@ -359,7 +399,7 @@ public class BrokerIntegrationService {
     }
     Double fees = preview.getEstimatedFees();
     if (fees == null || fees < 0.0) {
-      fees = estimateFees(notional);
+      fees = estimateFees(account.getProviderId(), request.getAssetClass(), request.getQuantity(), notional);
       preview.setEstimatedFees(fees);
     }
     if (preview.getEstimatedTotal() == null || preview.getEstimatedTotal() <= 0.0) {
@@ -389,10 +429,13 @@ public class BrokerIntegrationService {
   @Transactional
   public BrokerOrder cancelOrder(String userId, String accountId, String orderId) {
     BrokerAccountEntity account = accounts.findById(accountId).orElse(null);
-    if (account == null || !userId.equals(account.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (account == null || !userId.equals(account.getUserId()) || (orgId != null && !orgId.equals(account.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
     }
-    BrokerOrderEntity entity = orders.findByIdAndUserId(orderId, userId);
+    BrokerOrderEntity entity = orgId == null
+        ? orders.findByIdAndUserId(orderId, userId)
+        : orders.findByIdAndUserIdAndOrgId(orderId, userId, orgId);
     if (entity == null || !accountId.equals(entity.getBrokerAccountId())) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
     }
@@ -411,10 +454,13 @@ public class BrokerIntegrationService {
   @Transactional
   public BrokerOrder refreshOrder(String userId, String accountId, String orderId) {
     BrokerAccountEntity account = accounts.findById(accountId).orElse(null);
-    if (account == null || !userId.equals(account.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (account == null || !userId.equals(account.getUserId()) || (orgId != null && !orgId.equals(account.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
     }
-    BrokerOrderEntity entity = orders.findByIdAndUserId(orderId, userId);
+    BrokerOrderEntity entity = orgId == null
+        ? orders.findByIdAndUserId(orderId, userId)
+        : orders.findByIdAndUserIdAndOrgId(orderId, userId, orgId);
     if (entity == null || !accountId.equals(entity.getBrokerAccountId())) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
     }
@@ -439,7 +485,10 @@ public class BrokerIntegrationService {
 
   private BrokerConnection resolveConnection(String userId, BrokerAccountEntity account) {
     if (account.getBrokerConnectionId() != null && !account.getBrokerConnectionId().isBlank()) {
-      BrokerConnectionEntity entity = connections.findByIdAndUserId(account.getBrokerConnectionId(), userId);
+      String orgId = tenantContext.getOrgId();
+      BrokerConnectionEntity entity = orgId == null
+          ? connections.findByIdAndUserId(account.getBrokerConnectionId(), userId)
+          : connections.findByIdAndUserIdAndOrgId(account.getBrokerConnectionId(), userId, orgId);
       if (entity != null) return toDto(entity);
     }
     BrokerConnection connection = new BrokerConnection();
@@ -455,13 +504,17 @@ public class BrokerIntegrationService {
   private String upsertAccount(String userId, BrokerConnection connection, BrokerAccount acct) {
     BrokerAccountEntity existing = null;
     if (acct.getExternalAccountId() != null && !acct.getExternalAccountId().isBlank()) {
-      existing = accounts.findByUserIdAndExternalAccountId(userId, acct.getExternalAccountId());
+      String orgId = tenantContext.getOrgId();
+      existing = orgId == null
+          ? accounts.findByUserIdAndExternalAccountId(userId, acct.getExternalAccountId())
+          : accounts.findByUserIdAndOrgIdAndExternalAccountId(userId, orgId, acct.getExternalAccountId());
     }
     BrokerAccountEntity entity = existing == null ? new BrokerAccountEntity() : existing;
     String id = existing == null ? UUID.randomUUID().toString() : entity.getId();
 
     entity.setId(id);
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setProviderId(connection.getBrokerId());
     entity.setProviderName(acct.getProviderName() == null ? connection.getBrokerId() : acct.getProviderName());
     entity.setBrokerConnectionId(connection.getId());
@@ -497,6 +550,7 @@ public class BrokerIntegrationService {
     BrokerConnectionEntity entity = new BrokerConnectionEntity();
     entity.setId(conn.getId());
     entity.setUserId(conn.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setBrokerId(conn.getBrokerId());
     entity.setStatus(conn.getStatus());
     entity.setLabel(conn.getLabel());
@@ -546,6 +600,7 @@ public class BrokerIntegrationService {
     BrokerPositionEntity entity = new BrokerPositionEntity();
     entity.setId(pos.getId() == null ? UUID.randomUUID().toString() : pos.getId());
     entity.setUserId(pos.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setBrokerAccountId(pos.getBrokerAccountId());
     entity.setInstrumentId(pos.getInstrumentId());
     entity.setSymbol(pos.getSymbol());
@@ -586,6 +641,7 @@ public class BrokerIntegrationService {
     BrokerOrderEntity entity = new BrokerOrderEntity();
     entity.setId(order.getId() == null ? UUID.randomUUID().toString() : order.getId());
     entity.setUserId(order.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setBrokerAccountId(order.getBrokerAccountId());
     entity.setExternalOrderId(order.getExternalOrderId());
     entity.setClientOrderId(order.getClientOrderId());
@@ -1297,11 +1353,12 @@ public class BrokerIntegrationService {
     return qty * price * multiplier;
   }
 
-  private double estimateFees(double notional) {
+  private double estimateFees(String providerId, com.alphamath.portfolio.domain.execution.AssetClass assetClass,
+                              double quantity, double notional) {
     if (notional <= 0.0) {
       return 0.0;
     }
-    return notional * (feeBps / 10000.0);
+    return providerPolicy.estimateCommission(providerId, assetClass, quantity, notional, feeBps);
   }
 
   private double orderCashDelta(BrokerOrderRequest request, double notional, double fees) {

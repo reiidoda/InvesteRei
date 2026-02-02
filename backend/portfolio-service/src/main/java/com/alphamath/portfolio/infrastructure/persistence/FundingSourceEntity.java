@@ -17,6 +17,9 @@ public class FundingSourceEntity {
   @Column(nullable = false)
   private String userId;
 
+  @Column(name = "org_id")
+  private String orgId;
+
   @Enumerated(EnumType.STRING)
   private FundingMethodType methodType;
 

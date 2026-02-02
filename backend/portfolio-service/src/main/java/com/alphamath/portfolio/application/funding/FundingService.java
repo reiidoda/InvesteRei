@@ -27,6 +27,7 @@ import com.alphamath.portfolio.infrastructure.persistence.FundingTransferEntity;
 import com.alphamath.portfolio.infrastructure.persistence.FundingTransferRepository;
 import com.alphamath.portfolio.infrastructure.persistence.FundingWithdrawalEntity;
 import com.alphamath.portfolio.infrastructure.persistence.FundingWithdrawalRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +48,7 @@ public class FundingService {
   private final BrokerAccountRepository brokerAccounts;
   private final List<FundingAdapter> adapters;
   private final AuditService audit;
+  private final TenantContext tenantContext;
 
   public FundingService(TradeService trade,
                         FundingSourceRepository sources,
@@ -55,7 +57,8 @@ public class FundingService {
                         FundingTransferRepository transfers,
                         BrokerAccountRepository brokerAccounts,
                         List<FundingAdapter> adapters,
-                        AuditService audit) {
+                        AuditService audit,
+                        TenantContext tenantContext) {
     this.trade = trade;
     this.sources = sources;
     this.deposits = deposits;
@@ -64,6 +67,7 @@ public class FundingService {
     this.brokerAccounts = brokerAccounts;
     this.adapters = adapters;
     this.audit = audit;
+    this.tenantContext = tenantContext;
   }
 
   public List<FundingProviderInfo> listProviders() {
@@ -81,7 +85,11 @@ public class FundingService {
 
   public List<FundingSource> listSources(String userId) {
     List<FundingSource> out = new ArrayList<>();
-    for (FundingSourceEntity entity : sources.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<FundingSourceEntity> rows = orgId == null
+        ? sources.findByUserIdOrderByCreatedAtDesc(userId)
+        : sources.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (FundingSourceEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
@@ -172,6 +180,7 @@ public class FundingService {
     FundingDepositEntity entity = new FundingDepositEntity();
     entity.setId(receipt.getId());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setSourceId(receipt.getSourceId());
     entity.setAmount(receipt.getAmount());
     entity.setCurrency(receipt.getCurrency());
@@ -230,6 +239,7 @@ public class FundingService {
     FundingWithdrawalEntity entity = new FundingWithdrawalEntity();
     entity.setId(receipt.getId());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setSourceId(receipt.getSourceId());
     entity.setAmount(receipt.getAmount());
     entity.setCurrency(receipt.getCurrency());
@@ -307,6 +317,7 @@ public class FundingService {
     FundingTransferEntity entity = new FundingTransferEntity();
     entity.setId(receipt.getId());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setSourceId(receipt.getSourceId());
     entity.setBrokerAccountId(receipt.getBrokerAccountId());
     entity.setDirection(receipt.getDirection().name());
@@ -329,7 +340,11 @@ public class FundingService {
 
   public List<FundingDepositReceipt> listDeposits(String userId) {
     List<FundingDepositReceipt> out = new ArrayList<>();
-    for (FundingDepositEntity entity : deposits.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<FundingDepositEntity> rows = orgId == null
+        ? deposits.findByUserIdOrderByCreatedAtDesc(userId)
+        : deposits.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (FundingDepositEntity entity : rows) {
       FundingDepositReceipt receipt = new FundingDepositReceipt();
       receipt.setId(entity.getId());
       receipt.setUserId(entity.getUserId());
@@ -349,7 +364,11 @@ public class FundingService {
 
   public List<FundingWithdrawalReceipt> listWithdrawals(String userId) {
     List<FundingWithdrawalReceipt> out = new ArrayList<>();
-    for (FundingWithdrawalEntity entity : withdrawals.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<FundingWithdrawalEntity> rows = orgId == null
+        ? withdrawals.findByUserIdOrderByCreatedAtDesc(userId)
+        : withdrawals.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (FundingWithdrawalEntity entity : rows) {
       FundingWithdrawalReceipt receipt = new FundingWithdrawalReceipt();
       receipt.setId(entity.getId());
       receipt.setUserId(entity.getUserId());
@@ -369,7 +388,11 @@ public class FundingService {
 
   public List<FundingTransferReceipt> listTransfers(String userId) {
     List<FundingTransferReceipt> out = new ArrayList<>();
-    for (FundingTransferEntity entity : transfers.findByUserIdOrderByCreatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<FundingTransferEntity> rows = orgId == null
+        ? transfers.findByUserIdOrderByCreatedAtDesc(userId)
+        : transfers.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    for (FundingTransferEntity entity : rows) {
       FundingTransferReceipt receipt = new FundingTransferReceipt();
       receipt.setId(entity.getId());
       receipt.setUserId(entity.getUserId());
@@ -391,7 +414,8 @@ public class FundingService {
 
   private FundingSourceEntity getSourceEntity(String userId, String id) {
     FundingSourceEntity source = sources.findById(id).orElse(null);
-    if (source == null || !userId.equals(source.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (source == null || !userId.equals(source.getUserId()) || (orgId != null && !orgId.equals(source.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Source not found");
     }
     return source;
@@ -417,6 +441,7 @@ public class FundingService {
     FundingSourceEntity entity = new FundingSourceEntity();
     entity.setId(source.getId());
     entity.setUserId(source.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setMethodType(source.getMethodType());
     entity.setProviderId(source.getProviderId());
     entity.setProviderReference(source.getProviderReference());

@@ -27,6 +27,9 @@ public class AutoInvestPlanEntity {
   @Column(nullable = false)
   private String userId;
 
+  @Column(name = "org_id")
+  private String orgId;
+
   @Column(nullable = false)
   private String name;
 
@@ -35,6 +38,8 @@ public class AutoInvestPlanEntity {
 
   @Column(nullable = false)
   private String schedule;
+
+  private String goalType;
 
   private String scheduleTimeUtc;
   private String scheduleDayOfWeek;
@@ -59,6 +64,9 @@ public class AutoInvestPlanEntity {
   private Double minTradeValue;
   private Double maxTradePct;
   private Double maxTurnover;
+
+  private Double advisoryFeeBpsAnnual;
+  private Double minimumBalance;
 
   @Enumerated(EnumType.STRING)
   private ExecutionMode executionMode;
@@ -90,4 +98,5 @@ public class AutoInvestPlanEntity {
   private Instant createdAt;
   private Instant updatedAt;
   private Instant lastRunAt;
+  private Instant lastFeeChargedAt;
 }

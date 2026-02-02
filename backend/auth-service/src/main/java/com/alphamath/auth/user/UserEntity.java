@@ -24,6 +24,18 @@ public class UserEntity {
   @Column(name = "roles", length = 256)
   private String roles = "USER";
 
+  @Column(name = "primary_org_id")
+  private Long primaryOrgId;
+
+  @Column(name = "last_login_at")
+  private Instant lastLoginAt;
+
+  @Column(name = "status", nullable = false, length = 32)
+  private String status = "ACTIVE";
+
+  @Column(name = "disabled_at")
+  private Instant disabledAt;
+
   @Column(name = "mfa_enabled", nullable = false)
   private boolean mfaEnabled = false;
 

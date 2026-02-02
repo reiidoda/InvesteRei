@@ -3,6 +3,9 @@ package com.alphamath.portfolio.application.trade;
 import com.alphamath.portfolio.application.audit.AuditService;
 import com.alphamath.portfolio.application.compliance.ComplianceService;
 import com.alphamath.portfolio.application.execution.ExecutionService;
+import com.alphamath.portfolio.application.execution.BestExecutionService;
+import com.alphamath.portfolio.application.policy.ProviderPolicyService;
+import com.alphamath.portfolio.application.surveillance.SurveillanceService;
 import com.alphamath.portfolio.domain.execution.AssetClass;
 import com.alphamath.portfolio.domain.execution.OrderType;
 import com.alphamath.portfolio.domain.execution.Region;
@@ -34,6 +37,7 @@ import com.alphamath.portfolio.infrastructure.persistence.TradeProposalRepositor
 import com.alphamath.portfolio.math.BlackLitterman;
 import com.alphamath.portfolio.math.MathUtils;
 import com.alphamath.portfolio.math.Optimizers;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -63,12 +67,20 @@ public class TradeService {
   private final ExecutionService execution;
   private final AiForecastService aiForecast;
   private final AuditService audit;
+  private final ProviderPolicyService providerPolicy;
+  private final SurveillanceService surveillance;
+  private final BestExecutionService bestExecution;
+  private final TenantContext tenantContext;
   private final double feeBps;
 
   public TradeService(ComplianceService compliance, ExecutionService execution, AiForecastService aiForecast,
+                      ProviderPolicyService providerPolicy,
+                      SurveillanceService surveillance,
+                      BestExecutionService bestExecution,
                       PortfolioAccountRepository accounts, PortfolioPositionRepository positions,
                       TradeProposalRepository proposals, TradeOrderRepository orders,
                       AuditService audit,
+                      TenantContext tenantContext,
                       @Value("${alphamath.platform.feeBps:50}") double feeBps) {
     this.compliance = compliance;
     this.execution = execution;
@@ -78,6 +90,10 @@ public class TradeService {
     this.proposals = proposals;
     this.orders = orders;
     this.audit = audit;
+    this.providerPolicy = providerPolicy;
+    this.surveillance = surveillance;
+    this.bestExecution = bestExecution;
+    this.tenantContext = tenantContext;
     this.feeBps = Math.max(0.0, feeBps);
   }
 
@@ -106,7 +122,8 @@ public class TradeService {
 
   public TradeProposal getProposal(String userId, String id) {
     TradeProposalEntity entity = proposals.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Proposal not found");
     }
     List<TradeOrderEntity> orderRows = orders.findByProposalIdOrderByCreatedAtAsc(entity.getId());
@@ -191,8 +208,15 @@ public class TradeService {
       proposal.getPolicyChecks().add(buildCheck("Broker account", brokerLinked, brokerLinked ? "Linked" : "Not linked"));
     }
     proposal.setAi(buildAiRecommendation(req, proposal));
-    proposal.setDisclaimer("AI proposal requires user confirmation. Platform fee " + round(feeBps, 2)
-        + " bps applies to buy and sell notional. Not financial advice.");
+    boolean isJpm = providerPolicy.isJpm(proposal.getProviderPreference());
+    if (isJpm && proposal.getAssetClass() == AssetClass.OPTIONS) {
+      proposal.setDisclaimer("AI proposal requires user confirmation. Commission $0.65/contract for options. Not financial advice.");
+    } else if (isJpm) {
+      proposal.setDisclaimer("AI proposal requires user confirmation. Commission-free for stocks/ETFs/funds. Not financial advice.");
+    } else {
+      proposal.setDisclaimer("AI proposal requires user confirmation. Platform fee " + round(feeBps, 2)
+          + " bps applies to buy and sell notional. Not financial advice.");
+    }
 
     TradeProposalEntity entity = toEntity(proposal, account.getId());
     proposals.save(entity);
@@ -256,6 +280,8 @@ public class TradeService {
   }
 
   private void validateRequest(TradeProposalRequest req) {
+    providerPolicy.enforceAssetClass(req.getProviderPreference(),
+        req.getAssetClass() == null ? AssetClass.EQUITY : req.getAssetClass());
     int n = req.getSymbols().size();
     if (req.getMu().size() != n) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mu length must match symbols");
@@ -300,7 +326,8 @@ public class TradeService {
 
   private void buildOrdersAndChecks(TradeProposalRequest req, TradeProposal proposal,
                                     Map<String, Double> currentValues, double cash) {
-    double feeRate = feeBps / 10000.0;
+    boolean isJpm = providerPolicy.isJpm(proposal.getProviderPreference());
+    double feeBpsFallback = feeBps;
     double totalEquity = proposal.getTotalEquity();
     double minTrade = req.getMinTradeValue() == null ? 0.0 : req.getMinTradeValue();
     double maxTurnover = req.getMaxTurnover() == null ? 1.0 : req.getMaxTurnover();
@@ -343,7 +370,13 @@ public class TradeService {
 
       order.setQuantity(qty);
       order.setNotional(notional);
-      order.setFee(notional * feeRate);
+      order.setFee(providerPolicy.estimateCommission(
+          proposal.getProviderPreference(),
+          proposal.getAssetClass(),
+          qty,
+          notional,
+          feeBpsFallback
+      ));
       orders.add(order);
 
       if (order.getSide() == TradeSide.BUY) buyNotional += notional;
@@ -383,12 +416,18 @@ public class TradeService {
     proposal.setOrders(orders);
     proposal.setTurnover(turnover);
     proposal.setScaledBuyFactor(scaledBuyFactor);
-    proposal.setFeeBps(feeBps);
+    proposal.setFeeBps(isJpm ? 0.0 : feeBps);
     proposal.setFeeTotal(feeTotal);
 
     List<PolicyCheck> checks = new ArrayList<>();
     checks.add(buildCheck("Turnover", turnover <= maxTurnover, "Turnover=" + round(turnover, 4) + " max=" + maxTurnover));
-    checks.add(buildCheck("Platform fee", true, "Fee " + round(feeBps, 2) + " bps (buy+sell) = " + round(feeTotal, 2)));
+    if (isJpm && proposal.getAssetClass() == AssetClass.OPTIONS) {
+      checks.add(buildCheck("Commission", true, "$0.65/contract options commission = " + round(feeTotal, 2)));
+    } else if (isJpm) {
+      checks.add(buildCheck("Commission", true, "$0 commission for stocks/ETFs/funds"));
+    } else {
+      checks.add(buildCheck("Platform fee", true, "Fee " + round(feeBps, 2) + " bps (buy+sell) = " + round(feeTotal, 2)));
+    }
     if (scaledBuyFactor < 1.0) {
       checks.add(buildCheck("Cash coverage", false, "Buys scaled by " + round(scaledBuyFactor, 3) + " to fit cash"));
     } else {
@@ -414,6 +453,8 @@ public class TradeService {
     PortfolioAccountEntity account = accountId == null ? getOrCreateAccount(userId)
         : accounts.findById(accountId).orElseGet(() -> getOrCreateAccount(userId));
 
+    boolean isJpm = providerPolicy.isJpm(proposal.getProviderPreference());
+
     Map<String, Double> currentPositions = loadPositions(account.getId());
     double cash = account.getCash();
     Map<String, Double> positionsAfter = new LinkedHashMap<>(currentPositions);
@@ -427,7 +468,13 @@ public class TradeService {
       double qty = Math.min(order.getQuantity(), held);
       double notional = qty * order.getPrice();
       positionsAfter.put(order.getSymbol(), held - qty);
-      double fee = notional * (feeBps / 10000.0);
+      double fee = providerPolicy.estimateCommission(
+          proposal.getProviderPreference(),
+          proposal.getAssetClass(),
+          qty,
+          notional,
+          feeBps
+      );
       cash += (notional - fee);
       totalFees += fee;
 
@@ -484,6 +531,9 @@ public class TradeService {
     exec.setPositionsAfter(new LinkedHashMap<>(positionsAfter));
     exec.setFeeTotal(totalFees);
     exec.setNote("Paper-trade execution filled at provided prices.");
+
+    surveillance.evaluate(userId, proposal.getId(), filled);
+    bestExecution.record(userId, proposal.getId(), filled);
     return exec;
   }
 
@@ -565,6 +615,7 @@ public class TradeService {
     return Math.round(v * pow) / pow;
   }
 
+
   private static class RiskOverlay {
     private final double scale;
     private final double volatility;
@@ -599,10 +650,14 @@ public class TradeService {
   }
 
   private PortfolioAccountEntity getOrCreateAccount(String userId) {
-    return accounts.findByUserIdAndAccountType(userId, ACCOUNT_TYPE_PAPER).orElseGet(() -> {
+    String orgId = tenantContext.getOrgId();
+    return (orgId == null
+        ? accounts.findByUserIdAndAccountType(userId, ACCOUNT_TYPE_PAPER)
+        : accounts.findByUserIdAndOrgIdAndAccountType(userId, orgId, ACCOUNT_TYPE_PAPER)).orElseGet(() -> {
       PortfolioAccountEntity created = new PortfolioAccountEntity();
       created.setId(UUID.randomUUID().toString());
       created.setUserId(userId);
+      created.setOrgId(tenantContext.getOrgId());
       created.setAccountType(ACCOUNT_TYPE_PAPER);
       created.setStatus(ACCOUNT_STATUS_ACTIVE);
       created.setCash(0.0);
@@ -659,6 +714,7 @@ public class TradeService {
     TradeProposalEntity entity = new TradeProposalEntity();
     entity.setId(proposal.getId());
     entity.setUserId(proposal.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setAccountId(accountId);
     entity.setStatus(proposal.getStatus().name());
     entity.setCreatedAt(proposal.getCreatedAt());

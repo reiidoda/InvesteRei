@@ -40,3 +40,7 @@ alphamath:
       periodSeconds: 30
       skew: 1
       algorithm: HmacSHA1
+  sso:
+    baseUrl: ${AUTH_SSO_BASE_URL:http://localhost:8081}
+    entityId: ${AUTH_SSO_ENTITY_ID:urn:alphamath:investerei}
+    sessionTtlMinutes: ${AUTH_SSO_SESSION_TTL:10}

@@ -11,6 +11,7 @@ import com.alphamath.portfolio.domain.trade.PolicyCheck;
 import com.alphamath.portfolio.infrastructure.persistence.ComplianceProfileEntity;
 import com.alphamath.portfolio.infrastructure.persistence.ComplianceProfileRepository;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,19 +26,25 @@ import java.util.List;
 public class ComplianceService {
   private final ComplianceProfileRepository profiles;
   private final AuditService audit;
+  private final TenantContext tenantContext;
 
-  public ComplianceService(ComplianceProfileRepository profiles, AuditService audit) {
+  public ComplianceService(ComplianceProfileRepository profiles, AuditService audit, TenantContext tenantContext) {
     this.profiles = profiles;
     this.audit = audit;
+    this.tenantContext = tenantContext;
   }
 
   public ComplianceProfile getProfile(String userId) {
+    String orgId = tenantContext.getOrgId();
     ComplianceProfileEntity entity = profiles.findById(userId).orElseGet(() -> {
       ComplianceProfile profile = new ComplianceProfile();
       ComplianceProfileEntity created = profiles.save(toEntity(userId, profile, null));
       audit.record(userId, userId, "COMPLIANCE_CREATED", "portfolio_compliance_profile", userId, java.util.Map.of());
       return created;
     });
+    if (orgId != null && entity.getOrgId() != null && !orgId.equals(entity.getOrgId())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Compliance profile not in org");
+    }
     return fromEntity(entity);
   }
 
@@ -47,6 +54,10 @@ public class ComplianceService {
       ComplianceProfile profile = new ComplianceProfile();
       return toEntity(userId, profile, null);
     });
+    String orgId = tenantContext.getOrgId();
+    if (orgId != null && entity.getOrgId() != null && !orgId.equals(entity.getOrgId())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Compliance profile not in org");
+    }
     Instant createdAt = entity.getCreatedAt();
     ComplianceProfile profile = fromEntity(entity);
     if (req.getKycStatus() != null) profile.setKycStatus(req.getKycStatus());
@@ -127,6 +138,7 @@ public class ComplianceService {
   private ComplianceProfileEntity toEntity(String userId, ComplianceProfile profile, Instant createdAt) {
     ComplianceProfileEntity entity = new ComplianceProfileEntity();
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setKycStatus(profile.getKycStatus());
     entity.setAmlStatus(profile.getAmlStatus());
     entity.setSuitabilityStatus(profile.getSuitabilityStatus());

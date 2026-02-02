@@ -10,6 +10,10 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
 
   List<NotificationDeliveryEntity> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status, Pageable page);
 
+  List<NotificationDeliveryEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId, Pageable page);
+
+  List<NotificationDeliveryEntity> findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(String userId, String orgId, String status, Pageable page);
+
   List<NotificationDeliveryEntity> findByStatusOrderByCreatedAtAsc(String status, Pageable page);
 
   List<NotificationDeliveryEntity> findByStatusInOrderByCreatedAtAsc(List<String> statuses, Pageable page);

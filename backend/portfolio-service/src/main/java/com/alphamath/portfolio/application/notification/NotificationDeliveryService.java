@@ -14,6 +14,7 @@ import com.alphamath.portfolio.infrastructure.persistence.NotificationDestinatio
 import com.alphamath.portfolio.infrastructure.persistence.NotificationDestinationRepository;
 import com.alphamath.portfolio.infrastructure.persistence.NotificationEntity;
 import com.alphamath.portfolio.infrastructure.persistence.NotificationRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -39,6 +40,7 @@ public class NotificationDeliveryService {
   private final NotificationDestinationService destinations;
   private final NotificationDeliveryProperties properties;
   private final List<NotificationProvider> providers;
+  private final TenantContext tenantContext;
 
   public NotificationDeliveryService(NotificationDeliveryRepository deliveries,
                                      NotificationRepository notifications,
@@ -46,7 +48,8 @@ public class NotificationDeliveryService {
                                      NotificationPreferenceService preferences,
                                      NotificationDestinationService destinations,
                                      NotificationDeliveryProperties properties,
-                                     List<NotificationProvider> providers) {
+                                     List<NotificationProvider> providers,
+                                     TenantContext tenantContext) {
     this.deliveries = deliveries;
     this.notifications = notifications;
     this.destinationRepo = destinationRepo;
@@ -54,6 +57,7 @@ public class NotificationDeliveryService {
     this.destinations = destinations;
     this.properties = properties;
     this.providers = providers == null ? List.of() : providers;
+    this.tenantContext = tenantContext;
   }
 
   public void dispatch(Notification notification) {
@@ -106,10 +110,15 @@ public class NotificationDeliveryService {
     int size = limit <= 0 ? 50 : Math.min(limit, 200);
     var page = PageRequest.of(0, size);
     List<NotificationDeliveryEntity> rows;
+    String orgId = tenantContext.getOrgId();
     if (status != null && !status.isBlank()) {
-      rows = deliveries.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status.trim().toUpperCase(Locale.US), page);
+      rows = orgId == null
+          ? deliveries.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status.trim().toUpperCase(Locale.US), page)
+          : deliveries.findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(userId, orgId, status.trim().toUpperCase(Locale.US), page);
     } else {
-      rows = deliveries.findByUserIdOrderByCreatedAtDesc(userId, page);
+      rows = orgId == null
+          ? deliveries.findByUserIdOrderByCreatedAtDesc(userId, page)
+          : deliveries.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId, page);
     }
     return rows.stream().map(this::toDto).toList();
   }
@@ -324,6 +333,7 @@ public class NotificationDeliveryService {
     entity.setId(UUID.randomUUID().toString());
     entity.setNotificationId(notification.getId());
     entity.setUserId(notification.getUserId());
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setChannel(channel.name());
     entity.setDestinationId(destination == null ? null : destination.getId());
     entity.setStatus(NotificationDeliveryStatus.PENDING.name());

@@ -38,6 +38,10 @@ spring:
           uri: ${services.auth}
           predicates:
             - Path=/api/v1/auth/**
+        - id: scim
+          uri: ${services.auth}
+          predicates:
+            - Path=/api/v1/scim/**
         - id: portfolio
           uri: ${services.portfolio}
           predicates:
@@ -58,10 +62,38 @@ spring:
           uri: ${services.portfolio}
           predicates:
             - Path=/api/v1/trade/**
+        - id: auto-invest
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/auto-invest/**
         - id: funding
           uri: ${services.portfolio}
           predicates:
             - Path=/api/v1/funding/**
+        - id: banking
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/banking/**
+        - id: screeners
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/screeners/**
+        - id: wealth
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/wealth/**
+        - id: rewards
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/rewards/**
+        - id: surveillance
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/surveillance/**
+        - id: best-execution
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/best-execution/**
         - id: compliance
           uri: ${services.portfolio}
           predicates:

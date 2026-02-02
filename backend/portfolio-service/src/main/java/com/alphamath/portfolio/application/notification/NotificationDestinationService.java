@@ -6,6 +6,7 @@ import com.alphamath.portfolio.domain.notification.NotificationDestinationReques
 import com.alphamath.portfolio.domain.notification.NotificationDestinationStatus;
 import com.alphamath.portfolio.infrastructure.persistence.NotificationDestinationEntity;
 import com.alphamath.portfolio.infrastructure.persistence.NotificationDestinationRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,18 +20,25 @@ import java.util.UUID;
 @Service
 public class NotificationDestinationService {
   private final NotificationDestinationRepository destinations;
+  private final TenantContext tenantContext;
 
-  public NotificationDestinationService(NotificationDestinationRepository destinations) {
+  public NotificationDestinationService(NotificationDestinationRepository destinations, TenantContext tenantContext) {
     this.destinations = destinations;
+    this.tenantContext = tenantContext;
   }
 
   public List<NotificationDestination> list(String userId, String channel) {
     List<NotificationDestinationEntity> rows;
+    String orgId = tenantContext.getOrgId();
     if (channel != null && !channel.isBlank()) {
       NotificationChannel parsed = parseChannel(channel);
-      rows = destinations.findByUserIdAndChannelOrderByCreatedAtDesc(userId, parsed.name());
+      rows = orgId == null
+          ? destinations.findByUserIdAndChannelOrderByCreatedAtDesc(userId, parsed.name())
+          : destinations.findByUserIdAndOrgIdAndChannelOrderByCreatedAtDesc(userId, orgId, parsed.name());
     } else {
-      rows = destinations.findByUserIdOrderByCreatedAtDesc(userId);
+      rows = orgId == null
+          ? destinations.findByUserIdOrderByCreatedAtDesc(userId)
+          : destinations.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
     }
     return rows.stream().map(this::toDto).toList();
   }
@@ -39,8 +47,10 @@ public class NotificationDestinationService {
     if (channel == null) {
       return List.of();
     }
-    List<NotificationDestinationEntity> rows = destinations.findByUserIdAndChannelAndStatus(
-        userId, channel.name(), NotificationDestinationStatus.VERIFIED.name());
+    String orgId = tenantContext.getOrgId();
+    List<NotificationDestinationEntity> rows = orgId == null
+        ? destinations.findByUserIdAndChannelAndStatus(userId, channel.name(), NotificationDestinationStatus.VERIFIED.name())
+        : destinations.findByUserIdAndOrgIdAndChannelAndStatus(userId, orgId, channel.name(), NotificationDestinationStatus.VERIFIED.name());
     return rows.stream().map(this::toDto).toList();
   }
 
@@ -60,6 +70,7 @@ public class NotificationDestinationService {
     NotificationDestinationEntity entity = new NotificationDestinationEntity();
     entity.setId(UUID.randomUUID().toString());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setChannel(req.getChannel().name());
     entity.setDestination(destination);
     entity.setLabel(req.getLabel() == null ? null : req.getLabel().trim());
@@ -92,7 +103,8 @@ public class NotificationDestinationService {
 
   private NotificationDestinationEntity loadOwned(String userId, String id) {
     NotificationDestinationEntity entity = destinations.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination not found");
     }
     return entity;

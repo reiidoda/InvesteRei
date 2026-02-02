@@ -18,6 +18,9 @@ public class PortfolioAccountEntity {
   @Column(name = "user_id", nullable = false)
   private String userId;
 
+  @Column(name = "org_id")
+  private String orgId;
+
   @Column(name = "account_type", nullable = false)
   private String accountType;
 

@@ -13,6 +13,7 @@ import com.alphamath.portfolio.domain.notification.NotificationType;
 import com.alphamath.portfolio.infrastructure.persistence.AlertEntity;
 import com.alphamath.portfolio.infrastructure.persistence.AlertRepository;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -32,13 +33,16 @@ public class AlertService {
   private final AlertRepository alerts;
   private final NotificationService notifications;
   private final AuditService audit;
+  private final TenantContext tenantContext;
 
   public AlertService(AlertRepository alerts,
                       NotificationService notifications,
-                      AuditService audit) {
+                      AuditService audit,
+                      TenantContext tenantContext) {
     this.alerts = alerts;
     this.notifications = notifications;
     this.audit = audit;
+    this.tenantContext = tenantContext;
   }
 
   public Alert create(String userId, AlertRequest req) {
@@ -48,6 +52,7 @@ public class AlertService {
     AlertEntity entity = new AlertEntity();
     entity.setId(UUID.randomUUID().toString());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setStatus(AlertStatus.ACTIVE);
     entity.setAlertType(parseType(req.getAlertType()));
     entity.setSymbol(req.getSymbol() == null ? null : req.getSymbol().trim().toUpperCase(Locale.US));
@@ -74,11 +79,16 @@ public class AlertService {
     PageRequest page = PageRequest.of(0, size);
 
     List<AlertEntity> rows;
+    String orgId = tenantContext.getOrgId();
     if (status != null && !status.isBlank()) {
       AlertStatus parsed = parseStatus(status);
-      rows = alerts.findByUserIdAndStatusOrderByUpdatedAtDesc(userId, parsed, page);
+      rows = orgId == null
+          ? alerts.findByUserIdAndStatusOrderByUpdatedAtDesc(userId, parsed, page)
+          : alerts.findByUserIdAndOrgIdAndStatusOrderByUpdatedAtDesc(userId, orgId, parsed, page);
     } else {
-      rows = alerts.findByUserIdOrderByUpdatedAtDesc(userId, page);
+      rows = orgId == null
+          ? alerts.findByUserIdOrderByUpdatedAtDesc(userId, page)
+          : alerts.findByUserIdAndOrgIdOrderByUpdatedAtDesc(userId, orgId, page);
     }
 
     List<Alert> out = new ArrayList<>();
@@ -90,7 +100,8 @@ public class AlertService {
 
   public Alert updateStatus(String userId, String id, String status) {
     AlertEntity entity = alerts.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Alert not found");
     }
     entity.setStatus(parseStatus(status));
@@ -104,7 +115,8 @@ public class AlertService {
 
   public Alert trigger(String userId, String id, Map<String, Object> metadata) {
     AlertEntity entity = alerts.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Alert not found");
     }
     entity.setStatus(AlertStatus.TRIGGERED);

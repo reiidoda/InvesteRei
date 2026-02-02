@@ -25,6 +25,9 @@ public class TradeProposalEntity {
 
   @Column(nullable = false)
   private String userId;
+  @Column(name = "org_id")
+  private String orgId;
+
 
   @Column(name = "account_id")
   private String accountId;

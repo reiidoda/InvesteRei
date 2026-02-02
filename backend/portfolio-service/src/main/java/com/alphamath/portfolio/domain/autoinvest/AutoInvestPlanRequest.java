@@ -21,6 +21,8 @@ public class AutoInvestPlanRequest {
   @Size(min = 3, max = 64)
   private String name;
 
+  private AutoInvestGoalType goalType = AutoInvestGoalType.GENERAL_INVESTING;
+
   @NotNull @Size(min = 2, max = 50)
   private List<@NotNull String> symbols = new ArrayList<>();
 
@@ -52,6 +54,8 @@ public class AutoInvestPlanRequest {
   private Double minTradeValue = 10.0;
   private Double maxTradePctOfEquity = 0.25;
   private Double maxTurnover = 0.7;
+  private Double advisoryFeeBpsAnnual;
+  private Double minimumBalance;
 
   private ExecutionMode executionMode = ExecutionMode.PAPER;
   private Region region = Region.US;

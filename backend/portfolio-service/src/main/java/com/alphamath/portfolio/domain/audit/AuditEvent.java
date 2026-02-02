@@ -10,10 +10,13 @@ import java.util.Map;
 public class AuditEvent {
   private String id;
   private String userId;
+  private String orgId;
   private String actor;
   private String eventType;
   private String entityType;
   private String entityId;
   private Instant createdAt;
+  private String prevHash;
+  private String eventHash;
   private Map<String, Object> metadata = new LinkedHashMap<>();
 }

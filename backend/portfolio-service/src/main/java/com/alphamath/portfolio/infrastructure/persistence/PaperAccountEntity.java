@@ -16,6 +16,9 @@ public class PaperAccountEntity {
   @Id
   private String userId;
 
+  @Column(name = "org_id")
+  private String orgId;
+
   @Lob
   @Column(nullable = false)
   private String payload;

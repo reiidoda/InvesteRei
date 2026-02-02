@@ -7,6 +7,7 @@ import com.alphamath.portfolio.domain.notification.NotificationType;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
 import com.alphamath.portfolio.infrastructure.persistence.NotificationPreferenceEntity;
 import com.alphamath.portfolio.infrastructure.persistence.NotificationPreferenceRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,13 +24,18 @@ import java.util.UUID;
 @Service
 public class NotificationPreferenceService {
   private final NotificationPreferenceRepository preferences;
+  private final TenantContext tenantContext;
 
-  public NotificationPreferenceService(NotificationPreferenceRepository preferences) {
+  public NotificationPreferenceService(NotificationPreferenceRepository preferences, TenantContext tenantContext) {
     this.preferences = preferences;
+    this.tenantContext = tenantContext;
   }
 
   public List<NotificationPreference> list(String userId) {
-    List<NotificationPreferenceEntity> rows = preferences.findByUserIdOrderByChannelAsc(userId);
+    String orgId = tenantContext.getOrgId();
+    List<NotificationPreferenceEntity> rows = orgId == null
+        ? preferences.findByUserIdOrderByChannelAsc(userId)
+        : preferences.findByUserIdAndOrgIdOrderByChannelAsc(userId, orgId);
     return rows.stream().map(this::toDto).toList();
   }
 
@@ -40,11 +46,15 @@ public class NotificationPreferenceService {
     NotificationChannel channel = req.getChannel();
     validateQuietHours(req.getQuietStartHour(), req.getQuietEndHour());
 
-    NotificationPreferenceEntity entity = preferences.findByUserIdAndChannel(userId, channel.name());
+    String orgId = tenantContext.getOrgId();
+    NotificationPreferenceEntity entity = orgId == null
+        ? preferences.findByUserIdAndChannel(userId, channel.name())
+        : preferences.findByUserIdAndOrgIdAndChannel(userId, orgId, channel.name());
     if (entity == null) {
       entity = new NotificationPreferenceEntity();
       entity.setId(UUID.randomUUID().toString());
       entity.setUserId(userId);
+      entity.setOrgId(tenantContext.getOrgId());
       entity.setChannel(channel.name());
       entity.setCreatedAt(Instant.now());
       entity.setEnabled(req.getEnabled() == null ? true : req.getEnabled());
@@ -67,7 +77,10 @@ public class NotificationPreferenceService {
     if (channel == null) {
       return null;
     }
-    NotificationPreferenceEntity entity = preferences.findByUserIdAndChannel(userId, channel.name());
+    String orgId = tenantContext.getOrgId();
+    NotificationPreferenceEntity entity = orgId == null
+        ? preferences.findByUserIdAndChannel(userId, channel.name())
+        : preferences.findByUserIdAndOrgIdAndChannel(userId, orgId, channel.name());
     return entity == null ? null : toDto(entity);
   }
 

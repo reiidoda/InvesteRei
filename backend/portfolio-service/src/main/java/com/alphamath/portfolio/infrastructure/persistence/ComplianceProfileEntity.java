@@ -18,6 +18,9 @@ public class ComplianceProfileEntity {
   @Id
   private String userId;
 
+  @Column(name = "org_id")
+  private String orgId;
+
   @Enumerated(EnumType.STRING)
   private KycStatus kycStatus;
 

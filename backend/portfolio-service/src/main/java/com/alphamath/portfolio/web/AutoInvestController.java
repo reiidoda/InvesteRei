@@ -1,6 +1,8 @@
 package com.alphamath.portfolio.web;
 
 import com.alphamath.portfolio.application.autoinvest.AutoInvestService;
+import com.alphamath.portfolio.domain.autoinvest.AutoInvestFee;
+import com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio;
 import com.alphamath.portfolio.domain.autoinvest.AutoInvestPlan;
 import com.alphamath.portfolio.domain.autoinvest.AutoInvestPlanRequest;
 import com.alphamath.portfolio.domain.autoinvest.AutoInvestPlanStatus;
@@ -33,6 +35,11 @@ public class AutoInvestController {
     return autoInvest.listPlans(userId(principal));
   }
 
+  @GetMapping("/model-portfolios")
+  public List<AutoInvestModelPortfolio> modelPortfolios() {
+    return autoInvest.modelPortfolios();
+  }
+
   @GetMapping("/plans/{id}")
   public AutoInvestPlan plan(@PathVariable String id, Principal principal) {
     return autoInvest.getPlan(userId(principal), id);
@@ -57,6 +64,16 @@ public class AutoInvestController {
   @GetMapping("/plans/{id}/runs")
   public List<AutoInvestRun> runs(@PathVariable String id, Principal principal) {
     return autoInvest.listRuns(userId(principal), id);
+  }
+
+  @GetMapping("/plans/{id}/fees")
+  public List<AutoInvestFee> fees(@PathVariable String id, Principal principal) {
+    return autoInvest.listFees(userId(principal), id);
+  }
+
+  @PostMapping("/plans/{id}/fees/charge")
+  public AutoInvestFee charge(@PathVariable String id, Principal principal) {
+    return autoInvest.chargeFeeNow(userId(principal), id);
   }
 
   private String userId(Principal principal) {

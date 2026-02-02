@@ -4,7 +4,10 @@ import com.alphamath.portfolio.application.audit.AuditService;
 import com.alphamath.portfolio.application.marketdata.LatestQuotesResult;
 import com.alphamath.portfolio.application.marketdata.MarketDataService;
 import com.alphamath.portfolio.application.notification.NotificationService;
+import com.alphamath.portfolio.application.policy.ProviderPolicyService;
 import com.alphamath.portfolio.application.trade.TradeService;
+import com.alphamath.portfolio.domain.autoinvest.AutoInvestFee;
+import com.alphamath.portfolio.domain.autoinvest.AutoInvestGoalType;
 import com.alphamath.portfolio.domain.autoinvest.AutoInvestPlan;
 import com.alphamath.portfolio.domain.autoinvest.AutoInvestPlanRequest;
 import com.alphamath.portfolio.domain.autoinvest.AutoInvestPlanStatus;
@@ -17,11 +20,14 @@ import com.alphamath.portfolio.domain.notification.NotificationType;
 import com.alphamath.portfolio.domain.trade.PaperAccount;
 import com.alphamath.portfolio.domain.trade.TradeProposal;
 import com.alphamath.portfolio.domain.trade.TradeProposalRequest;
+import com.alphamath.portfolio.infrastructure.persistence.AutoInvestFeeEntity;
+import com.alphamath.portfolio.infrastructure.persistence.AutoInvestFeeRepository;
 import com.alphamath.portfolio.infrastructure.persistence.AutoInvestPlanEntity;
 import com.alphamath.portfolio.infrastructure.persistence.AutoInvestPlanRepository;
 import com.alphamath.portfolio.infrastructure.persistence.AutoInvestRunEntity;
 import com.alphamath.portfolio.infrastructure.persistence.AutoInvestRunRepository;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,6 +41,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.WeekFields;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,40 +53,60 @@ import java.util.UUID;
 public class AutoInvestService {
   private final AutoInvestPlanRepository plans;
   private final AutoInvestRunRepository runs;
+  private final AutoInvestFeeRepository fees;
   private final MarketDataService marketData;
   private final TradeService trade;
   private final NotificationService notifications;
   private final AuditService audit;
+  private final ProviderPolicyService providerPolicy;
+  private final TenantContext tenantContext;
   private final int minReturns;
   private final int defaultLookback;
   private final int driftIdempotencyHours;
+  private final double minimumBalanceDefault;
+  private final double advisoryFeeBpsAnnualDefault;
+  private final int advisoryFeeChargeDays;
 
   public AutoInvestService(AutoInvestPlanRepository plans,
                            AutoInvestRunRepository runs,
+                           AutoInvestFeeRepository fees,
                            MarketDataService marketData,
                            TradeService trade,
                            NotificationService notifications,
                            AuditService audit,
+                           ProviderPolicyService providerPolicy,
+                           TenantContext tenantContext,
                            @Value("${alphamath.autoinvest.minReturns:30}") int minReturns,
                            @Value("${alphamath.autoinvest.defaultLookback:90}") int defaultLookback,
-                           @Value("${alphamath.autoinvest.driftIdempotencyHours:6}") int driftIdempotencyHours) {
+                           @Value("${alphamath.autoinvest.driftIdempotencyHours:6}") int driftIdempotencyHours,
+                           @Value("${alphamath.autoinvest.minimumBalance:500}") double minimumBalanceDefault,
+                           @Value("${alphamath.autoinvest.advisoryFeeBpsAnnual:35}") double advisoryFeeBpsAnnualDefault,
+                           @Value("${alphamath.autoinvest.advisoryFeeChargeDays:90}") int advisoryFeeChargeDays) {
     this.plans = plans;
     this.runs = runs;
+    this.fees = fees;
     this.marketData = marketData;
     this.trade = trade;
     this.notifications = notifications;
     this.audit = audit;
+    this.providerPolicy = providerPolicy;
+    this.tenantContext = tenantContext;
     this.minReturns = Math.max(5, minReturns);
     this.defaultLookback = Math.max(30, defaultLookback);
     this.driftIdempotencyHours = Math.max(1, driftIdempotencyHours);
+    this.minimumBalanceDefault = Math.max(0.0, minimumBalanceDefault);
+    this.advisoryFeeBpsAnnualDefault = Math.max(0.0, advisoryFeeBpsAnnualDefault);
+    this.advisoryFeeChargeDays = Math.max(30, advisoryFeeChargeDays);
   }
 
   public AutoInvestPlan createPlan(String userId, AutoInvestPlanRequest req) {
     AutoInvestPlan plan = new AutoInvestPlan();
     plan.setId(UUID.randomUUID().toString());
     plan.setUserId(userId);
+    plan.setOrgId(tenantContext.getOrgId());
     plan.setName(req.getName().trim());
     plan.setStatus(AutoInvestPlanStatus.ACTIVE);
+    plan.setGoalType(req.getGoalType() == null ? AutoInvestGoalType.GENERAL_INVESTING : req.getGoalType());
     plan.setSchedule(req.getSchedule());
     plan.setScheduleTimeUtc(req.getScheduleTimeUtc());
     plan.setScheduleDayOfWeek(req.getScheduleDayOfWeek());
@@ -95,6 +122,10 @@ public class AutoInvestService {
     plan.setMinTradeValue(req.getMinTradeValue());
     plan.setMaxTradePctOfEquity(req.getMaxTradePctOfEquity());
     plan.setMaxTurnover(req.getMaxTurnover());
+    double feeBps = req.getAdvisoryFeeBpsAnnual() == null ? advisoryFeeBpsAnnualDefault : req.getAdvisoryFeeBpsAnnual();
+    double minBalance = req.getMinimumBalance() == null ? minimumBalanceDefault : req.getMinimumBalance();
+    plan.setAdvisoryFeeBpsAnnual(Math.max(0.0, feeBps));
+    plan.setMinimumBalance(Math.max(0.0, minBalance));
     plan.setExecutionMode(req.getExecutionMode());
     plan.setRegion(req.getRegion());
     plan.setAssetClass(req.getAssetClass());
@@ -107,6 +138,7 @@ public class AutoInvestService {
     plan.setCreatedAt(Instant.now());
     plan.setUpdatedAt(plan.getCreatedAt());
 
+    ensureMinimumBalance(userId, plan.getMinimumBalance());
     validatePlan(plan);
 
     AutoInvestPlanEntity entity = toEntity(plan);
@@ -119,14 +151,19 @@ public class AutoInvestService {
   }
 
   public List<AutoInvestPlan> listPlans(String userId) {
-    return plans.findByUserIdOrderByCreatedAtDesc(userId).stream()
+    String orgId = tenantContext.getOrgId();
+    List<AutoInvestPlanEntity> rows = orgId == null
+        ? plans.findByUserIdOrderByCreatedAtDesc(userId)
+        : plans.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
+    return rows.stream()
         .map(this::toDto)
         .toList();
   }
 
   public AutoInvestPlan getPlan(String userId, String id) {
     AutoInvestPlanEntity entity = plans.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found");
     }
     return toDto(entity);
@@ -134,7 +171,8 @@ public class AutoInvestService {
 
   public AutoInvestPlan updateStatus(String userId, String id, AutoInvestPlanStatus status) {
     AutoInvestPlanEntity entity = plans.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found");
     }
     entity.setStatus(status.name());
@@ -147,12 +185,66 @@ public class AutoInvestService {
 
   public List<AutoInvestRun> listRuns(String userId, String planId) {
     AutoInvestPlanEntity plan = plans.findById(planId).orElse(null);
-    if (plan == null || !userId.equals(plan.getUserId())) {
+    String orgId = tenantContext.getOrgId();
+    if (plan == null || !userId.equals(plan.getUserId()) || (orgId != null && !orgId.equals(plan.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found");
     }
     return runs.findByPlanIdOrderByCreatedAtDesc(planId).stream()
         .map(this::toRunDto)
         .toList();
+  }
+
+  public List<com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio> modelPortfolios() {
+    List<com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio> out = new ArrayList<>();
+
+    com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio conservative = new com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio();
+    conservative.setId("jpm_conservative");
+    conservative.setName("JPM Conservative (Mock)");
+    conservative.setRiskLevel("CONSERVATIVE");
+    conservative.setDescription("Mock JPM-style conservative portfolio with higher fixed income allocation.");
+    conservative.getAllocations().put("JPM_BOND_CORE", 0.55);
+    conservative.getAllocations().put("JPM_BOND_SHORT", 0.20);
+    conservative.getAllocations().put("JPM_EQ_US", 0.15);
+    conservative.getAllocations().put("JPM_EQ_INTL", 0.05);
+    conservative.getAllocations().put("JPM_CASH", 0.05);
+    out.add(conservative);
+
+    com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio balanced = new com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio();
+    balanced.setId("jpm_balanced");
+    balanced.setName("JPM Balanced (Mock)");
+    balanced.setRiskLevel("BALANCED");
+    balanced.setDescription("Mock JPM-style balanced portfolio with diversified equity and bond exposure.");
+    balanced.getAllocations().put("JPM_EQ_US", 0.35);
+    balanced.getAllocations().put("JPM_EQ_INTL", 0.20);
+    balanced.getAllocations().put("JPM_BOND_CORE", 0.30);
+    balanced.getAllocations().put("JPM_BOND_SHORT", 0.10);
+    balanced.getAllocations().put("JPM_CASH", 0.05);
+    out.add(balanced);
+
+    com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio growth = new com.alphamath.portfolio.domain.autoinvest.AutoInvestModelPortfolio();
+    growth.setId("jpm_growth");
+    growth.setName("JPM Growth (Mock)");
+    growth.setRiskLevel("GROWTH");
+    growth.setDescription("Mock JPM-style growth portfolio with equity tilt.");
+    growth.getAllocations().put("JPM_EQ_US", 0.50);
+    growth.getAllocations().put("JPM_EQ_INTL", 0.30);
+    growth.getAllocations().put("JPM_BOND_CORE", 0.15);
+    growth.getAllocations().put("JPM_CASH", 0.05);
+    out.add(growth);
+
+    return out;
+  }
+
+  public List<AutoInvestFee> listFees(String userId, String planId) {
+    AutoInvestPlanEntity plan = plans.findById(planId).orElse(null);
+    if (plan == null || !userId.equals(plan.getUserId())) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found");
+    }
+    List<AutoInvestFee> out = new ArrayList<>();
+    for (AutoInvestFeeEntity entity : fees.findByPlanIdOrderByCreatedAtDesc(planId, org.springframework.data.domain.PageRequest.of(0, 50))) {
+      out.add(toFeeDto(entity));
+    }
+    return out;
   }
 
   public AutoInvestRun runNow(String userId, String planId) {
@@ -162,6 +254,15 @@ public class AutoInvestService {
     }
     AutoInvestPlan plan = toDto(planEntity);
     return executePlan(plan, AutoInvestTrigger.MANUAL, Instant.now());
+  }
+
+  public AutoInvestFee chargeFeeNow(String userId, String planId) {
+    AutoInvestPlanEntity planEntity = plans.findById(planId).orElse(null);
+    if (planEntity == null || !userId.equals(planEntity.getUserId())) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found");
+    }
+    AutoInvestPlan plan = toDto(planEntity);
+    return chargeFee(plan, Instant.now());
   }
 
   public void runScheduled() {
@@ -178,6 +279,16 @@ public class AutoInvestService {
     }
   }
 
+  public void runAdvisoryFees() {
+    Instant now = Instant.now();
+    for (AutoInvestPlanEntity entity : plans.findByStatusOrderByCreatedAtAsc(AutoInvestPlanStatus.ACTIVE.name())) {
+      AutoInvestPlan plan = toDto(entity);
+      if (shouldChargeFee(plan, now)) {
+        chargeFee(plan, now);
+      }
+    }
+  }
+
   private AutoInvestRun executePlan(AutoInvestPlan plan, AutoInvestTrigger trigger, Instant now) {
     String idempotencyKey = buildIdempotencyKey(plan, trigger, now);
     if (runs.findByIdempotencyKey(idempotencyKey).isPresent()) {
@@ -187,6 +298,7 @@ public class AutoInvestService {
     run.setId(UUID.randomUUID().toString());
     run.setPlanId(plan.getId());
     run.setUserId(plan.getUserId());
+    run.setOrgId(plan.getOrgId() == null ? tenantContext.getOrgId() : plan.getOrgId());
     run.setTrigger(trigger.name());
     run.setStatus(AutoInvestRunStatus.PENDING.name());
     run.setIdempotencyKey(idempotencyKey);
@@ -605,6 +717,7 @@ public class AutoInvestService {
   }
 
   private void validatePlan(AutoInvestPlan plan) {
+    providerPolicy.enforceAssetClass(plan.getProviderPreference(), plan.getAssetClass());
     if (!plan.isUseMarketData()) {
       int n = plan.getSymbols().size();
       if (plan.getMu() == null || plan.getMu().size() != n) {
@@ -621,13 +734,110 @@ public class AutoInvestService {
     }
   }
 
+  private void ensureMinimumBalance(String userId, Double minimumBalance) {
+    if (minimumBalance == null || minimumBalance <= 0.0) return;
+    EquitySnapshot equity = computeEquitySnapshot(userId);
+    if (equity.totalEquity + 1e-9 < minimumBalance) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "minimum balance $" + round(minimumBalance, 2) + " required (current $" + round(equity.totalEquity, 2) + ")");
+    }
+  }
+
+  private boolean shouldChargeFee(AutoInvestPlan plan, Instant now) {
+    double feeBps = plan.getAdvisoryFeeBpsAnnual() == null ? advisoryFeeBpsAnnualDefault : plan.getAdvisoryFeeBpsAnnual();
+    if (feeBps <= 0.0) return false;
+    Instant last = plan.getLastFeeChargedAt();
+    if (last == null) return true;
+    long days = ChronoUnit.DAYS.between(last, now);
+    return days >= advisoryFeeChargeDays;
+  }
+
+  private AutoInvestFee chargeFee(AutoInvestPlan plan, Instant now) {
+    EquitySnapshot equity = computeEquitySnapshot(plan.getUserId());
+    double feeBps = plan.getAdvisoryFeeBpsAnnual() == null ? advisoryFeeBpsAnnualDefault : plan.getAdvisoryFeeBpsAnnual();
+    double feeRate = feeBps / 10000.0;
+    double charge = equity.totalEquity * feeRate * (advisoryFeeChargeDays / 365.0);
+
+    AutoInvestFeeEntity entity = new AutoInvestFeeEntity();
+    entity.setId(UUID.randomUUID().toString());
+    entity.setPlanId(plan.getId());
+    entity.setUserId(plan.getUserId());
+    entity.setOrgId(plan.getOrgId() == null ? tenantContext.getOrgId() : plan.getOrgId());
+    entity.setEquity(equity.totalEquity);
+    entity.setFeeBpsAnnual(feeBps);
+    entity.setChargeDays(advisoryFeeChargeDays);
+    entity.setAmount(Math.max(0.0, charge));
+    entity.setCreatedAt(now);
+
+    if (charge <= 0.0) {
+      entity.setStatus("SKIPPED_ZERO");
+      fees.save(entity);
+      return toFeeDto(entity);
+    }
+
+    try {
+      trade.debitCash(plan.getUserId(), charge);
+      entity.setStatus("CHARGED");
+      plan.setLastFeeChargedAt(now);
+      plan.setUpdatedAt(now);
+      plans.save(toEntity(plan));
+      fees.save(entity);
+      notifications.create(plan.getUserId(), NotificationType.AUTO_INVEST_FEE,
+          "Advisory fee charged",
+          "Auto-invest advisory fee of $" + round(charge, 2) + " charged for " + plan.getName(),
+          "portfolio_auto_invest_plan", plan.getId(), java.util.Map.of(
+              "feeBpsAnnual", feeBps,
+              "equity", equity.totalEquity,
+              "chargeDays", advisoryFeeChargeDays
+          ));
+      audit.record(plan.getUserId(), "system", "AUTO_INVEST_FEE",
+          "portfolio_auto_invest_plan", plan.getId(), java.util.Map.of(
+              "amount", charge,
+              "feeBpsAnnual", feeBps,
+              "equity", equity.totalEquity
+          ));
+    } catch (ResponseStatusException e) {
+      entity.setStatus("SKIPPED_INSUFFICIENT_CASH");
+      fees.save(entity);
+    }
+
+    return toFeeDto(entity);
+  }
+
+  private EquitySnapshot computeEquitySnapshot(String userId) {
+    PaperAccount account = trade.getAccount(userId);
+    double total = account.getCash();
+    if (account.getPositions() == null || account.getPositions().isEmpty()) {
+      return new EquitySnapshot(total, List.of());
+    }
+    List<String> symbols = new ArrayList<>(account.getPositions().keySet());
+    LatestQuotesResult quotes = marketData.latestQuotes(symbols);
+    Map<String, MarketQuote> quoteMap = new LinkedHashMap<>();
+    for (LatestQuotesResult.QuoteSnapshot snapshot : quotes.quotes()) {
+      quoteMap.put(snapshot.quote().symbol(), snapshot.quote());
+    }
+    List<String> missing = new ArrayList<>();
+    for (String symbol : symbols) {
+      MarketQuote quote = quoteMap.get(symbol);
+      if (quote == null || quote.price() <= 0.0) {
+        missing.add(symbol);
+        continue;
+      }
+      double qty = account.getPositions().getOrDefault(symbol, 0.0);
+      total += qty * quote.price();
+    }
+    return new EquitySnapshot(total, missing);
+  }
+
   private AutoInvestPlanEntity toEntity(AutoInvestPlan plan) {
     AutoInvestPlanEntity entity = new AutoInvestPlanEntity();
     entity.setId(plan.getId());
     entity.setUserId(plan.getUserId());
+    entity.setOrgId(plan.getOrgId() == null ? tenantContext.getOrgId() : plan.getOrgId());
     entity.setName(plan.getName());
     entity.setStatus(plan.getStatus().name());
     entity.setSchedule(plan.getSchedule().name());
+    entity.setGoalType(plan.getGoalType() == null ? null : plan.getGoalType().name());
     entity.setScheduleTimeUtc(plan.getScheduleTimeUtc());
     entity.setScheduleDayOfWeek(plan.getScheduleDayOfWeek());
     entity.setDriftThreshold(plan.getDriftThreshold());
@@ -642,6 +852,8 @@ public class AutoInvestService {
     entity.setMinTradeValue(plan.getMinTradeValue());
     entity.setMaxTradePct(plan.getMaxTradePctOfEquity());
     entity.setMaxTurnover(plan.getMaxTurnover());
+    entity.setAdvisoryFeeBpsAnnual(plan.getAdvisoryFeeBpsAnnual());
+    entity.setMinimumBalance(plan.getMinimumBalance());
     entity.setExecutionMode(plan.getExecutionMode());
     entity.setRegion(plan.getRegion());
     entity.setAssetClass(plan.getAssetClass());
@@ -654,6 +866,7 @@ public class AutoInvestService {
     entity.setCreatedAt(plan.getCreatedAt());
     entity.setUpdatedAt(plan.getUpdatedAt());
     entity.setLastRunAt(plan.getLastRunAt());
+    entity.setLastFeeChargedAt(plan.getLastFeeChargedAt());
     return entity;
   }
 
@@ -661,9 +874,11 @@ public class AutoInvestService {
     AutoInvestPlan plan = new AutoInvestPlan();
     plan.setId(entity.getId());
     plan.setUserId(entity.getUserId());
+    plan.setOrgId(entity.getOrgId());
     plan.setName(entity.getName());
     plan.setStatus(AutoInvestPlanStatus.valueOf(entity.getStatus()));
     plan.setSchedule(AutoInvestSchedule.valueOf(entity.getSchedule()));
+    plan.setGoalType(entity.getGoalType() == null ? AutoInvestGoalType.GENERAL_INVESTING : AutoInvestGoalType.valueOf(entity.getGoalType()));
     plan.setScheduleTimeUtc(entity.getScheduleTimeUtc());
     plan.setScheduleDayOfWeek(entity.getScheduleDayOfWeek());
     plan.setDriftThreshold(entity.getDriftThreshold());
@@ -678,6 +893,8 @@ public class AutoInvestService {
     plan.setMinTradeValue(entity.getMinTradeValue());
     plan.setMaxTradePctOfEquity(entity.getMaxTradePct());
     plan.setMaxTurnover(entity.getMaxTurnover());
+    plan.setAdvisoryFeeBpsAnnual(entity.getAdvisoryFeeBpsAnnual());
+    plan.setMinimumBalance(entity.getMinimumBalance());
     plan.setExecutionMode(entity.getExecutionMode());
     plan.setRegion(entity.getRegion());
     plan.setAssetClass(entity.getAssetClass());
@@ -690,6 +907,7 @@ public class AutoInvestService {
     plan.setCreatedAt(entity.getCreatedAt());
     plan.setUpdatedAt(entity.getUpdatedAt());
     plan.setLastRunAt(entity.getLastRunAt());
+    plan.setLastFeeChargedAt(entity.getLastFeeChargedAt());
     return plan;
   }
 
@@ -707,6 +925,20 @@ public class AutoInvestService {
     run.setCreatedAt(entity.getCreatedAt());
     run.setUpdatedAt(entity.getUpdatedAt());
     return run;
+  }
+
+  private AutoInvestFee toFeeDto(AutoInvestFeeEntity entity) {
+    AutoInvestFee fee = new AutoInvestFee();
+    fee.setId(entity.getId());
+    fee.setPlanId(entity.getPlanId());
+    fee.setUserId(entity.getUserId());
+    fee.setAmount(entity.getAmount());
+    fee.setEquity(entity.getEquity());
+    fee.setFeeBpsAnnual(entity.getFeeBpsAnnual());
+    fee.setChargeDays(entity.getChargeDays());
+    fee.setStatus(entity.getStatus());
+    fee.setCreatedAt(entity.getCreatedAt());
+    return fee;
   }
 
   private List<String> parseList(String json) {
@@ -755,5 +987,15 @@ public class AutoInvestService {
     boolean aiUsed;
     int symbols;
     Map<String, String> quoteSources;
+  }
+
+  private static class EquitySnapshot {
+    private final double totalEquity;
+    private final List<String> missingSymbols;
+
+    private EquitySnapshot(double totalEquity, List<String> missingSymbols) {
+      this.totalEquity = totalEquity;
+      this.missingSymbols = missingSymbols;
+    }
   }
 }

@@ -14,7 +14,7 @@ This document maps common broker platform capabilities and how InvesteRei covers
 | FX | Partial | FX instruments + rates + routing-ready |
 | Crypto | Yes | Broker catalog + custody-ready models |
 | Funding rails (ACH/wire) | Yes | Funding service scaffold + audit |
-| Statements/tax | Yes | Ledger + tax-lot scaffold planned |
+| Statements/tax | Yes | Ledger + tax lots + corporate actions + reconciliation implemented |
 | Alerts/watchlists | Yes | Native alerts + watchlists + AI insights |
 | Research/news | Yes | Research notes + AI summaries |
 | Compliance/AML/KYC | Yes | Compliance profiles + audit logging |

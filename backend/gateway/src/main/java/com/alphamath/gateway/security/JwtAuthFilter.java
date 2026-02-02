@@ -35,7 +35,7 @@ public class JwtAuthFilter implements GlobalFilter {
     String path = exchange.getRequest().getURI().getPath();
 
     // Public endpoints
-    if (path.startsWith("/api/v1/auth/") || path.equals("/actuator/health")) {
+    if (path.startsWith("/api/v1/auth/") || path.startsWith("/api/v1/scim/") || path.equals("/actuator/health")) {
       return chain.filter(exchange);
     }
 
@@ -59,15 +59,21 @@ public class JwtAuthFilter implements GlobalFilter {
       String mfaHeader = mfaClaim == null ? "" : String.valueOf(mfaClaim);
       Object uidClaim = claims.get("uid");
       Object emailClaim = claims.get("email");
+      Object orgClaim = claims.get("org_id");
+      Object orgRolesClaim = claims.get("org_roles");
       String userIdHeader = uidClaim == null ? "" : String.valueOf(uidClaim);
       String emailHeader = emailClaim == null ? "" : String.valueOf(emailClaim);
+      String orgIdHeader = orgClaim == null ? "" : String.valueOf(orgClaim);
+      String orgRolesHeader = rolesHeader(orgRolesClaim);
 
       // You can propagate user info downstream as headers:
       ServerWebExchange mutated = exchange.mutate()
           .request(r -> r.header("X-User-Id", userIdHeader)
                          .header("X-User-Email", emailHeader)
                          .header("X-User-Roles", rolesHeader)
-                         .header("X-User-Mfa", mfaHeader))
+                         .header("X-User-Mfa", mfaHeader)
+                         .header("X-Org-Id", orgIdHeader)
+                         .header("X-Org-Roles", orgRolesHeader))
           .build();
 
       return chain.filter(mutated);

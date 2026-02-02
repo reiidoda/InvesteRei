@@ -17,6 +17,9 @@ public class FundingDepositEntity {
 
   @Column(nullable = false)
   private String userId;
+  @Column(name = "org_id")
+  private String orgId;
+
 
   @Column(nullable = false)
   private String sourceId;

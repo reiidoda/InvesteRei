@@ -13,6 +13,7 @@ import com.alphamath.portfolio.infrastructure.persistence.WatchlistEntity;
 import com.alphamath.portfolio.infrastructure.persistence.WatchlistItemEntity;
 import com.alphamath.portfolio.infrastructure.persistence.WatchlistItemRepository;
 import com.alphamath.portfolio.infrastructure.persistence.WatchlistRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,17 +34,20 @@ public class WatchlistService {
   private final MarketDataService marketData;
   private final AiForecastService ai;
   private final AuditService audit;
+  private final TenantContext tenantContext;
 
   public WatchlistService(WatchlistRepository watchlists,
                           WatchlistItemRepository items,
                           MarketDataService marketData,
                           AiForecastService ai,
-                          AuditService audit) {
+                          AuditService audit,
+                          TenantContext tenantContext) {
     this.watchlists = watchlists;
     this.items = items;
     this.marketData = marketData;
     this.ai = ai;
     this.audit = audit;
+    this.tenantContext = tenantContext;
   }
 
   public Watchlist create(String userId, WatchlistRequest req) {
@@ -53,6 +57,7 @@ public class WatchlistService {
     WatchlistEntity entity = new WatchlistEntity();
     entity.setId(UUID.randomUUID().toString());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setName(req.getName().trim());
     entity.setDescription(req.getDescription());
     entity.setCreatedAt(Instant.now());
@@ -66,14 +71,21 @@ public class WatchlistService {
 
   public List<Watchlist> list(String userId) {
     List<Watchlist> out = new ArrayList<>();
-    for (WatchlistEntity entity : watchlists.findByUserIdOrderByUpdatedAtDesc(userId)) {
+    String orgId = tenantContext.getOrgId();
+    List<WatchlistEntity> rows = orgId == null
+        ? watchlists.findByUserIdOrderByUpdatedAtDesc(userId)
+        : watchlists.findByUserIdAndOrgIdOrderByUpdatedAtDesc(userId, orgId);
+    for (WatchlistEntity entity : rows) {
       out.add(toDto(entity));
     }
     return out;
   }
 
   public Watchlist update(String userId, String id, WatchlistRequest req) {
-    WatchlistEntity entity = watchlists.findByIdAndUserId(id, userId);
+    String orgId = tenantContext.getOrgId();
+    WatchlistEntity entity = orgId == null
+        ? watchlists.findByIdAndUserId(id, userId)
+        : watchlists.findByIdAndUserIdAndOrgId(id, userId, orgId);
     if (entity == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Watchlist not found");
     }
@@ -91,7 +103,10 @@ public class WatchlistService {
   }
 
   public void delete(String userId, String id) {
-    WatchlistEntity entity = watchlists.findByIdAndUserId(id, userId);
+    String orgId = tenantContext.getOrgId();
+    WatchlistEntity entity = orgId == null
+        ? watchlists.findByIdAndUserId(id, userId)
+        : watchlists.findByIdAndUserIdAndOrgId(id, userId, orgId);
     if (entity == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Watchlist not found");
     }
@@ -102,7 +117,10 @@ public class WatchlistService {
   }
 
   public WatchlistItem addItem(String userId, String watchlistId, WatchlistItemRequest req) {
-    WatchlistEntity watchlist = watchlists.findByIdAndUserId(watchlistId, userId);
+    String orgId = tenantContext.getOrgId();
+    WatchlistEntity watchlist = orgId == null
+        ? watchlists.findByIdAndUserId(watchlistId, userId)
+        : watchlists.findByIdAndUserIdAndOrgId(watchlistId, userId, orgId);
     if (watchlist == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Watchlist not found");
     }
@@ -128,7 +146,10 @@ public class WatchlistService {
   }
 
   public List<WatchlistItem> listItems(String userId, String watchlistId) {
-    WatchlistEntity watchlist = watchlists.findByIdAndUserId(watchlistId, userId);
+    String orgId = tenantContext.getOrgId();
+    WatchlistEntity watchlist = orgId == null
+        ? watchlists.findByIdAndUserId(watchlistId, userId)
+        : watchlists.findByIdAndUserIdAndOrgId(watchlistId, userId, orgId);
     if (watchlist == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Watchlist not found");
     }
@@ -140,7 +161,10 @@ public class WatchlistService {
   }
 
   public void removeItem(String userId, String watchlistId, String itemId) {
-    WatchlistEntity watchlist = watchlists.findByIdAndUserId(watchlistId, userId);
+    String orgId = tenantContext.getOrgId();
+    WatchlistEntity watchlist = orgId == null
+        ? watchlists.findByIdAndUserId(watchlistId, userId)
+        : watchlists.findByIdAndUserIdAndOrgId(watchlistId, userId, orgId);
     if (watchlist == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Watchlist not found");
     }
@@ -154,7 +178,10 @@ public class WatchlistService {
   }
 
   public List<WatchlistItem> refreshInsights(String userId, String watchlistId, int horizon, int lookback) {
-    WatchlistEntity watchlist = watchlists.findByIdAndUserId(watchlistId, userId);
+    String orgId = tenantContext.getOrgId();
+    WatchlistEntity watchlist = orgId == null
+        ? watchlists.findByIdAndUserId(watchlistId, userId)
+        : watchlists.findByIdAndUserIdAndOrgId(watchlistId, userId, orgId);
     if (watchlist == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Watchlist not found");
     }

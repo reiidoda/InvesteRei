@@ -100,6 +100,22 @@ alphamath:
     minReturns: ${AUTOINVEST_MIN_RETURNS:30}
     defaultLookback: ${AUTOINVEST_DEFAULT_LOOKBACK:90}
     driftIdempotencyHours: ${AUTOINVEST_DRIFT_IDEMPOTENCY_HOURS:6}
+    minimumBalance: ${AUTOINVEST_MINIMUM_BALANCE:500}
+    advisoryFeeBpsAnnual: ${AUTOINVEST_ADVISORY_FEE_BPS_ANNUAL:35}
+    advisoryFeeChargeDays: ${AUTOINVEST_ADVISORY_FEE_CHARGE_DAYS:90}
+  banking:
+    defaultCurrency: ${BANKING_DEFAULT_CURRENCY:USD}
+  wealthplan:
+    simulations: ${WEALTHPLAN_SIMULATIONS:1000}
+    defaultReturn: ${WEALTHPLAN_DEFAULT_RETURN:0.06}
+    defaultVolatility: ${WEALTHPLAN_DEFAULT_VOLATILITY:0.12}
+  research:
+    proprietaryMock: ${RESEARCH_PROPRIETARY_MOCK:true}
+  rewards:
+    evalDelayMs: ${REWARDS_EVAL_DELAY_MS:3600000}
+  surveillance:
+    largeOrderNotional: ${SURVEILLANCE_LARGE_ORDER_NOTIONAL:100000}
+    maxOrdersPerProposal: ${SURVEILLANCE_MAX_ORDERS:20}
   notifications:
     delivery:
       enabled: ${NOTIFICATION_DELIVERY_ENABLED:true}

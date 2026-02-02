@@ -18,6 +18,9 @@ public class AuditEventEntity {
   @Column(name = "user_id", nullable = false)
   private String userId;
 
+  @Column(name = "org_id")
+  private String orgId;
+
   @Column(nullable = false)
   private String actor;
 
@@ -28,6 +31,12 @@ public class AuditEventEntity {
   private String entityId;
 
   private Instant createdAt;
+
+  @Column(name = "prev_hash")
+  private String prevHash;
+
+  @Column(name = "event_hash")
+  private String eventHash;
 
   @Column(name = "metadata_json", nullable = false)
   private String metadataJson;

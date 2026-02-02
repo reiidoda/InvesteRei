@@ -20,6 +20,9 @@ public class ExecutionFillEntity {
 
   @Column(name = "user_id", nullable = false)
   private String userId;
+  @Column(name = "org_id")
+  private String orgId;
+
 
   @Column(name = "proposal_id", nullable = false)
   private String proposalId;

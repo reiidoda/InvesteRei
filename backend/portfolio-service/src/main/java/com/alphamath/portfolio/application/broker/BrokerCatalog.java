@@ -43,8 +43,8 @@ public class BrokerCatalog {
         List.of("retirement", "options", "fractional")));
     out.add(def("jp_morgan", "JP Morgan", 88,
         List.of(Region.US, Region.EU, Region.UK),
-        List.of(AssetClass.EQUITY, AssetClass.ETF, AssetClass.FIXED_INCOME, AssetClass.MUTUAL_FUND),
-        List.of("managed_portfolios", "banking")));
+        List.of(AssetClass.EQUITY, AssetClass.ETF, AssetClass.FIXED_INCOME, AssetClass.MUTUAL_FUND, AssetClass.OPTIONS),
+        List.of("managed_portfolios", "banking", "research", "fractional", "options", "instant_transfer")));
     out.add(def("robinhood", "Robinhood", 82,
         List.of(Region.US),
         List.of(AssetClass.EQUITY, AssetClass.ETF, AssetClass.OPTIONS, AssetClass.CRYPTO),

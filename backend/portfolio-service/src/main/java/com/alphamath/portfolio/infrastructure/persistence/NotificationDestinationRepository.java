@@ -10,4 +10,10 @@ public interface NotificationDestinationRepository extends JpaRepository<Notific
   List<NotificationDestinationEntity> findByUserIdAndChannelOrderByCreatedAtDesc(String userId, String channel);
 
   List<NotificationDestinationEntity> findByUserIdAndChannelAndStatus(String userId, String channel, String status);
+
+  List<NotificationDestinationEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId);
+
+  List<NotificationDestinationEntity> findByUserIdAndOrgIdAndChannelOrderByCreatedAtDesc(String userId, String orgId, String channel);
+
+  List<NotificationDestinationEntity> findByUserIdAndOrgIdAndChannelAndStatus(String userId, String orgId, String channel, String status);
 }

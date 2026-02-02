@@ -20,11 +20,15 @@ public class RequestTraceFilter extends OncePerRequestFilter {
     String requestId = headerOrGenerate(request, "X-Request-Id");
     String traceId = headerOrDefault(request, "X-Trace-Id", requestId);
     String userId = headerOrDefault(request, "X-User-Id", null);
+    String orgId = headerOrDefault(request, "X-Org-Id", null);
 
     MDC.put("requestId", requestId);
     MDC.put("traceId", traceId);
     if (userId != null && !userId.isBlank()) {
       MDC.put("userId", userId);
+    }
+    if (orgId != null && !orgId.isBlank()) {
+      MDC.put("orgId", orgId);
     }
 
     response.setHeader("X-Request-Id", requestId);
@@ -38,6 +42,7 @@ public class RequestTraceFilter extends OncePerRequestFilter {
       MDC.remove("requestId");
       MDC.remove("traceId");
       MDC.remove("userId");
+      MDC.remove("orgId");
     }
   }
 

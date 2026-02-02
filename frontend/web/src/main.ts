@@ -15,6 +15,13 @@ import { AlertsComponent } from './app/features/alerts/alerts.component';
 import { StatementsComponent } from './app/features/statements/statements.component';
 import { ResearchComponent } from './app/features/research/research.component';
 import { ManualTradeComponent } from './app/features/manual-trade/manual-trade.component';
+import { BankingComponent } from './app/features/banking/banking.component';
+import { ScreenersComponent } from './app/features/screeners/screeners.component';
+import { PortfolioBuilderComponent } from './app/features/portfolio-builder/portfolio-builder.component';
+import { WealthPlanComponent } from './app/features/wealth-plan/wealth-plan.component';
+import { RewardsComponent } from './app/features/rewards/rewards.component';
+import { SurveillanceComponent } from './app/features/surveillance/surveillance.component';
+import { BestExecutionComponent } from './app/features/best-execution/best-execution.component';
 
 const routes: Routes = [
   { path: '', component: PortfolioLabComponent },
@@ -24,6 +31,13 @@ const routes: Routes = [
   { path: 'simulation', component: SimulationLabComponent },
   { path: 'market-data', component: MarketDataComponent },
   { path: 'manual-trade', component: ManualTradeComponent },
+  { path: 'banking', component: BankingComponent },
+  { path: 'screeners', component: ScreenersComponent },
+  { path: 'portfolio-builder', component: PortfolioBuilderComponent },
+  { path: 'wealth-plan', component: WealthPlanComponent },
+  { path: 'rewards', component: RewardsComponent },
+  { path: 'surveillance', component: SurveillanceComponent },
+  { path: 'best-execution', component: BestExecutionComponent },
   { path: 'watchlists', component: WatchlistsComponent },
   { path: 'alerts', component: AlertsComponent },
   { path: 'statements', component: StatementsComponent },

@@ -10,4 +10,10 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntryEntity, 
   List<LedgerEntryEntity> findByUserIdAndAccountIdOrderByTradeDateDesc(String userId, String accountId, PageRequest page);
   List<LedgerEntryEntity> findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(String userId, String accountId,
                                                                                         Instant start, Instant end);
+
+  List<LedgerEntryEntity> findByUserIdAndOrgIdAndAccountIdOrderByTradeDateDesc(String userId, String orgId, String accountId,
+                                                                              PageRequest page);
+  List<LedgerEntryEntity> findByUserIdAndOrgIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(String userId, String orgId,
+                                                                                                String accountId,
+                                                                                                Instant start, Instant end);
 }

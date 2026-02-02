@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class JwtService {
@@ -35,39 +34,51 @@ public class JwtService {
     this.mfaChallengeTtlMinutes = mfaChallengeTtlMinutes;
   }
 
-  public String issueToken(long uid, String email, List<String> roles, boolean mfaEnabled) {
+  public String issueToken(long uid, String email, List<String> roles, boolean mfaEnabled, Long orgId, List<String> orgRoles) {
     Instant now = Instant.now();
     Instant exp = now.plusSeconds(ttlMinutes * 60);
+    java.util.Map<String, Object> claims = new java.util.HashMap<>();
+    claims.put("uid", uid);
+    claims.put("email", email);
+    claims.put("roles", roles == null ? List.of() : roles);
+    claims.put("mfa", mfaEnabled);
+    claims.put("type", "access");
+    if (orgId != null) {
+      claims.put("org_id", orgId);
+    }
+    if (orgRoles != null) {
+      claims.put("org_roles", orgRoles);
+    }
 
     return Jwts.builder()
         .issuer(issuer)
         .subject(String.valueOf(uid))
         .issuedAt(Date.from(now))
         .expiration(Date.from(exp))
-        .claims(Map.of(
-            "uid", uid,
-            "email", email,
-            "roles", roles == null ? List.of() : roles,
-            "mfa", mfaEnabled,
-            "type", "access"
-        ))
+        .claims(claims)
         .signWith(key)
         .compact();
   }
 
-  public MfaChallenge issueMfaChallenge(long uid, String email) {
+  public MfaChallenge issueMfaChallenge(long uid, String email, Long orgId, List<String> orgRoles) {
     Instant now = Instant.now();
     Instant exp = now.plusSeconds(mfaChallengeTtlMinutes * 60);
+    java.util.Map<String, Object> claims = new java.util.HashMap<>();
+    claims.put("uid", uid);
+    claims.put("email", email);
+    claims.put("type", "mfa_challenge");
+    if (orgId != null) {
+      claims.put("org_id", orgId);
+    }
+    if (orgRoles != null) {
+      claims.put("org_roles", orgRoles);
+    }
     String token = Jwts.builder()
         .issuer(issuer)
         .subject(String.valueOf(uid))
         .issuedAt(Date.from(now))
         .expiration(Date.from(exp))
-        .claims(Map.of(
-            "uid", uid,
-            "email", email,
-            "type", "mfa_challenge"
-        ))
+        .claims(claims)
         .signWith(key)
         .compact();
     return new MfaChallenge(token, exp);
