@@ -95,6 +95,7 @@ Engineering and open-source docs index: `docs/README.md`.
 - See `mobile/README.md` for run steps
 
 ## Open source project docs
+- License: `LICENSE` (Apache-2.0)
 - Code of Conduct: `CODE_OF_CONDUCT.md`
 - Contributing: `CONTRIBUTING.md`
 - Security Policy: `SECURITY.md`
