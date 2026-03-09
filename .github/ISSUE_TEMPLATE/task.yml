@@ -1,0 +1,28 @@
+name: Engineering task
+description: Internal implementation task tied to a milestone
+labels:
+  - priority:P2
+body:
+  - type: input
+    id: milestone
+    attributes:
+      label: Milestone
+      description: e.g. M2 — Reliability & Test Coverage
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      placeholder: |
+        - [ ] Implementation
+        - [ ] Tests
+        - [ ] Docs
+    validations:
+      required: true

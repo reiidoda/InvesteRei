@@ -10,6 +10,38 @@ InvesteRei is a modular investing platform with service separation by responsibi
 - `frontend/web`: Angular UI for operational and portfolio workflows.
 - `mobile/investerei_app`: Flutter client with enterprise feature access.
 
+## Component Graph
+```mermaid
+flowchart LR
+  subgraph Clients
+    WEB["Angular Web"]
+    MOB["Flutter Mobile"]
+  end
+
+  WEB --> GW["Gateway"]
+  MOB --> GW
+
+  GW --> AUTH["Auth Service"]
+  GW --> PORT["Portfolio Service"]
+  GW --> SIM["Simulation Service"]
+  GW --> AI["AI Service"]
+
+  AUTH --> PG[("PostgreSQL")]
+  PORT --> PG
+  SIM --> PG
+  AI --> PG
+
+  GW --> REDIS[("Redis")]
+  PORT --> REDIS
+  SIM --> REDIS
+
+  AUTH -. "SAML / OIDC" .-> IDP["Enterprise IdP"]
+  AUTH -. "SCIM" .-> SCIM["Provisioning Client"]
+  PORT -. "Broker APIs" .-> BRK["Broker Providers"]
+  PORT -. "Market Data APIs" .-> MDP["Market Data Providers"]
+  PORT -. "Email / SMS / Webhook" .-> NTF["Notification Providers"]
+```
+
 ## Architectural Style
 - Service-oriented architecture with API gateway at the edge.
 - Domain-centric modules inside services (`application`, `domain`, `infrastructure`, `web`).
@@ -29,6 +61,41 @@ InvesteRei is a modular investing platform with service separation by responsibi
 4. User decision is recorded; execution intent is created and submitted.
 5. Fill/order data updates account state and triggers surveillance/best-execution records.
 6. Audit and notifications are written for traceability.
+
+## Trade Lifecycle Sequence
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant C as Client App
+  participant G as Gateway
+  participant A as Auth Service
+  participant P as Portfolio Service
+  participant B as Broker Adapter
+  participant D as PostgreSQL
+
+  U->>C: Login or SSO
+  C->>G: POST /api/v1/auth/*
+  G->>A: Forward request
+  A-->>G: JWT (roles + org context)
+  G-->>C: Access token
+
+  U->>C: Create trade proposal
+  C->>G: POST /api/v1/trade/proposals
+  G->>P: Authenticated request + org headers
+  P->>D: Persist proposal + policy checks
+  P-->>G: Proposal payload
+  G-->>C: Proposal summary
+
+  U->>C: Approve proposal
+  C->>G: POST /api/v1/trade/proposals/{id}/decision
+  G->>P: Decision request
+  P->>B: Submit intent/order
+  B-->>P: Execution response
+  P->>D: Persist orders/fills/audit
+  P-->>G: Execution status
+  G-->>C: Updated status
+```
 
 ## Org/Tenant Boundary
 - Every org-scoped domain table includes `org_id`.

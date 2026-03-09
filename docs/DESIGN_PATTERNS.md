@@ -9,6 +9,17 @@
 - **Factory-style Construction**: request-to-entity assembly for deterministic writes.
 - **DTO Mapper Pattern**: explicit conversion methods to avoid leaking persistence shapes.
 
+## Pattern Placement
+```mermaid
+flowchart TB
+  G["Gateway Pattern"] --> C["Controller Layer"]
+  C --> S["Service Layer Pattern"]
+  S --> R["Repository Pattern"]
+  S --> A["Adapter Pattern"]
+  S --> ST["Strategy Pattern"]
+  S --> M["DTO Mapper / Factory-style Construction"]
+```
+
 ## Why These Patterns
 - Improve maintainability as features grow across enterprise modules.
 - Keep integration logic isolated from core domain logic.

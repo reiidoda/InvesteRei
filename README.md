@@ -100,6 +100,7 @@ Engineering and open-source docs index: `docs/README.md`.
 - Security Policy: `SECURITY.md`
 - Governance: `GOVERNANCE.md`
 - Support: `SUPPORT.md`
+- Roadmap + milestones/issues map: `docs/ROADMAP.md`
 
 ## Current state (implemented)
 - One-command local stack with Docker Compose + Makefile

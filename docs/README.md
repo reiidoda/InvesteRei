@@ -12,6 +12,7 @@
 - [OO Design](OO_DESIGN.md)
 - [Design Patterns](DESIGN_PATTERNS.md)
 - [Testing Strategy](TEST_STRATEGY.md)
+- [Open Source Roadmap](ROADMAP.md)
 
 ## Open source process
 - [Contributing guide](../CONTRIBUTING.md)
