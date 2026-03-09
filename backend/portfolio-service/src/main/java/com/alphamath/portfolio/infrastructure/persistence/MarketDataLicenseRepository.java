@@ -8,4 +8,10 @@ public interface MarketDataLicenseRepository extends JpaRepository<MarketDataLic
   List<MarketDataLicenseEntity> findByUserIdOrderByCreatedAtDesc(String userId);
 
   List<MarketDataLicenseEntity> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);
+
+  List<MarketDataLicenseEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId);
+
+  List<MarketDataLicenseEntity> findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(String userId, String orgId, String status);
+
+  long countByOrgId(String orgId);
 }

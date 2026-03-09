@@ -21,6 +21,7 @@ import com.alphamath.portfolio.infrastructure.persistence.StatementEntity;
 import com.alphamath.portfolio.infrastructure.persistence.StatementRepository;
 import com.alphamath.portfolio.infrastructure.persistence.TaxLotEntity;
 import com.alphamath.portfolio.infrastructure.persistence.TaxLotRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -41,15 +42,18 @@ public class ReportingService {
   private final TaxLotRepository taxLots;
   private final CorporateActionRepository corporateActions;
   private final StatementRepository statements;
+  private final TenantContext tenantContext;
 
   public ReportingService(LedgerEntryRepository ledger,
                           TaxLotRepository taxLots,
                           CorporateActionRepository corporateActions,
-                          StatementRepository statements) {
+                          StatementRepository statements,
+                          TenantContext tenantContext) {
     this.ledger = ledger;
     this.taxLots = taxLots;
     this.corporateActions = corporateActions;
     this.statements = statements;
+    this.tenantContext = tenantContext;
   }
 
   public List<LedgerEntry> addLedgerEntries(String userId, List<LedgerEntryRequest> reqs) {
@@ -58,6 +62,7 @@ public class ReportingService {
     }
     List<LedgerEntry> out = new ArrayList<>();
     Instant now = Instant.now();
+    String orgId = tenantContext.getOrgId();
     for (LedgerEntryRequest req : reqs) {
       if (req.getAccountId() == null || req.getAccountId().isBlank()) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId required");
@@ -65,6 +70,7 @@ public class ReportingService {
       LedgerEntryEntity entity = new LedgerEntryEntity();
       entity.setId(UUID.randomUUID().toString());
       entity.setUserId(userId);
+      entity.setOrgId(orgId);
       entity.setAccountId(req.getAccountId());
       entity.setBrokerAccountId(req.getBrokerAccountId());
       entity.setEntryType(parseEntryType(req.getEntryType()));
@@ -91,16 +97,21 @@ public class ReportingService {
     if (accountId == null || accountId.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId required");
     }
+    String orgId = tenantContext.getOrgId();
     if (start != null || end != null) {
       Instant startTs = start == null ? Instant.EPOCH : start;
       Instant endTs = end == null ? Instant.now() : end;
-      List<LedgerEntryEntity> rows = ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
-          userId, accountId, startTs, endTs);
+      List<LedgerEntryEntity> rows = orgId == null
+          ? ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(userId, accountId, startTs, endTs)
+          : ledger.findByUserIdAndOrgIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(userId, orgId, accountId, startTs,
+              endTs);
       return rows.stream().map(this::toDto).toList();
     }
     int size = limit <= 0 ? 100 : Math.min(limit, 500);
     PageRequest page = PageRequest.of(0, size);
-    List<LedgerEntryEntity> rows = ledger.findByUserIdAndAccountIdOrderByTradeDateDesc(userId, accountId, page);
+    List<LedgerEntryEntity> rows = orgId == null
+        ? ledger.findByUserIdAndAccountIdOrderByTradeDateDesc(userId, accountId, page)
+        : ledger.findByUserIdAndOrgIdAndAccountIdOrderByTradeDateDesc(userId, orgId, accountId, page);
     return rows.stream().map(this::toDto).toList();
   }
 
@@ -112,14 +123,19 @@ public class ReportingService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "symbol required");
     }
 
+    String orgId = tenantContext.getOrgId();
     TaxLotEntity entity = null;
     if (req.getId() != null && !req.getId().isBlank()) {
       entity = taxLots.findById(req.getId()).orElse(null);
+      if (entity != null && (!userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId())))) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tax lot not found");
+      }
     }
     if (entity == null) {
       entity = new TaxLotEntity();
       entity.setId(UUID.randomUUID().toString());
       entity.setUserId(userId);
+      entity.setOrgId(orgId);
       entity.setCreatedAt(Instant.now());
     }
 
@@ -146,15 +162,22 @@ public class ReportingService {
     int size = limit <= 0 ? 100 : Math.min(limit, 500);
     PageRequest page = PageRequest.of(0, size);
 
+    String orgId = tenantContext.getOrgId();
     List<TaxLotEntity> rows;
     if (symbol != null && !symbol.isBlank()) {
-      rows = taxLots.findByUserIdAndAccountIdAndSymbolOrderByUpdatedAtDesc(userId, accountId,
-          normalizeSymbol(symbol), page);
+      rows = orgId == null
+          ? taxLots.findByUserIdAndAccountIdAndSymbolOrderByUpdatedAtDesc(userId, accountId, normalizeSymbol(symbol), page)
+          : taxLots.findByUserIdAndOrgIdAndAccountIdAndSymbolOrderByUpdatedAtDesc(
+              userId, orgId, accountId, normalizeSymbol(symbol), page);
     } else if (status != null && !status.isBlank()) {
-      rows = taxLots.findByUserIdAndAccountIdAndStatusOrderByUpdatedAtDesc(userId, accountId,
-          parseStatus(status), page);
+      rows = orgId == null
+          ? taxLots.findByUserIdAndAccountIdAndStatusOrderByUpdatedAtDesc(userId, accountId, parseStatus(status), page)
+          : taxLots.findByUserIdAndOrgIdAndAccountIdAndStatusOrderByUpdatedAtDesc(
+              userId, orgId, accountId, parseStatus(status), page);
     } else {
-      rows = taxLots.findByUserIdAndAccountIdOrderByUpdatedAtDesc(userId, accountId, page);
+      rows = orgId == null
+          ? taxLots.findByUserIdAndAccountIdOrderByUpdatedAtDesc(userId, accountId, page)
+          : taxLots.findByUserIdAndOrgIdAndAccountIdOrderByUpdatedAtDesc(userId, orgId, accountId, page);
     }
     return rows.stream().map(this::toDto).toList();
   }
@@ -166,6 +189,7 @@ public class ReportingService {
     CorporateActionEntity entity = new CorporateActionEntity();
     entity.setId(UUID.randomUUID().toString());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setAccountId(req.getAccountId());
     entity.setActionType(parseCorporateActionType(req.getActionType()));
     entity.setSymbol(normalizeSymbol(req.getSymbol()));
@@ -182,11 +206,16 @@ public class ReportingService {
   public List<CorporateAction> listCorporateActions(String userId, String symbol, int limit) {
     int size = limit <= 0 ? 100 : Math.min(limit, 500);
     PageRequest page = PageRequest.of(0, size);
+    String orgId = tenantContext.getOrgId();
     List<CorporateActionEntity> rows;
     if (symbol != null && !symbol.isBlank()) {
-      rows = corporateActions.findByUserIdAndSymbolOrderByCreatedAtDesc(userId, normalizeSymbol(symbol), page);
+      rows = orgId == null
+          ? corporateActions.findByUserIdAndSymbolOrderByCreatedAtDesc(userId, normalizeSymbol(symbol), page)
+          : corporateActions.findByUserIdAndOrgIdAndSymbolOrderByCreatedAtDesc(userId, orgId, normalizeSymbol(symbol), page);
     } else {
-      rows = corporateActions.findByUserIdOrderByCreatedAtDesc(userId, page);
+      rows = orgId == null
+          ? corporateActions.findByUserIdOrderByCreatedAtDesc(userId, page)
+          : corporateActions.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId, page);
     }
     return rows.stream().map(this::toDto).toList();
   }
@@ -195,16 +224,20 @@ public class ReportingService {
     if (req == null || req.getAccountId() == null || req.getAccountId().isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId required");
     }
+    String orgId = tenantContext.getOrgId();
     Instant start = req.getPeriodStart() == null ? Instant.EPOCH : req.getPeriodStart();
     Instant end = req.getPeriodEnd() == null ? Instant.now() : req.getPeriodEnd();
-    List<LedgerEntryEntity> rows = ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
-        userId, req.getAccountId(), start, end);
+    List<LedgerEntryEntity> rows = orgId == null
+        ? ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(userId, req.getAccountId(), start, end)
+        : ledger.findByUserIdAndOrgIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
+            userId, orgId, req.getAccountId(), start, end);
 
     StatementSummary summary = summarize(rows, req.getStartingBalance());
 
     StatementEntity entity = new StatementEntity();
     entity.setId(UUID.randomUUID().toString());
     entity.setUserId(userId);
+    entity.setOrgId(orgId);
     entity.setAccountId(req.getAccountId());
     entity.setPeriodStart(start);
     entity.setPeriodEnd(end);
@@ -230,9 +263,12 @@ public class ReportingService {
     if (accountId == null || accountId.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId required");
     }
+    String orgId = tenantContext.getOrgId();
     int size = limit <= 0 ? 24 : Math.min(limit, 120);
     PageRequest page = PageRequest.of(0, size);
-    List<StatementEntity> rows = statements.findByUserIdAndAccountIdOrderByPeriodEndDesc(userId, accountId, page);
+    List<StatementEntity> rows = orgId == null
+        ? statements.findByUserIdAndAccountIdOrderByPeriodEndDesc(userId, accountId, page)
+        : statements.findByUserIdAndOrgIdAndAccountIdOrderByPeriodEndDesc(userId, orgId, accountId, page);
     return rows.stream().map(this::toDto).toList();
   }
 
@@ -240,8 +276,12 @@ public class ReportingService {
     if (accountId == null || accountId.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountId required");
     }
-    List<LedgerEntryEntity> rows = ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
-        userId, accountId, start == null ? Instant.EPOCH : start, end == null ? Instant.now() : end);
+    String orgId = tenantContext.getOrgId();
+    List<LedgerEntryEntity> rows = orgId == null
+        ? ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
+            userId, accountId, start == null ? Instant.EPOCH : start, end == null ? Instant.now() : end)
+        : ledger.findByUserIdAndOrgIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
+            userId, orgId, accountId, start == null ? Instant.EPOCH : start, end == null ? Instant.now() : end);
     StatementSummary summary = summarize(rows, null);
     Map<String, Object> out = new LinkedHashMap<>();
     out.put("accountId", accountId);

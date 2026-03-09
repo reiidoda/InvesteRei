@@ -13,6 +13,7 @@ import com.alphamath.portfolio.infrastructure.persistence.PortfolioPositionEntit
 import com.alphamath.portfolio.infrastructure.persistence.PortfolioPositionRepository;
 import com.alphamath.portfolio.infrastructure.persistence.TaxLotEntity;
 import com.alphamath.portfolio.infrastructure.persistence.TaxLotRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -32,13 +33,16 @@ public class ReconciliationService {
   private final LedgerEntryRepository ledger;
   private final PortfolioPositionRepository positions;
   private final TaxLotRepository taxLots;
+  private final TenantContext tenantContext;
 
   public ReconciliationService(LedgerEntryRepository ledger,
                                PortfolioPositionRepository positions,
-                               TaxLotRepository taxLots) {
+                               TaxLotRepository taxLots,
+                               TenantContext tenantContext) {
     this.ledger = ledger;
     this.positions = positions;
     this.taxLots = taxLots;
+    this.tenantContext = tenantContext;
   }
 
   public ReconciliationReport reconcile(String userId, ReconciliationRequest req) {
@@ -48,8 +52,11 @@ public class ReconciliationService {
     validateLotMethod(req.getLotMethod());
     String accountId = req.getAccountId();
     Instant now = Instant.now();
-    List<LedgerEntryEntity> entries = ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
-        userId, accountId, Instant.EPOCH, now);
+    String orgId = tenantContext.getOrgId();
+    List<LedgerEntryEntity> entries = orgId == null
+        ? ledger.findByUserIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(userId, accountId, Instant.EPOCH, now)
+        : ledger.findByUserIdAndOrgIdAndAccountIdAndTradeDateBetweenOrderByTradeDateAsc(
+            userId, orgId, accountId, Instant.EPOCH, now);
 
     Map<String, Double> ledgerPositions = rollupLedger(entries);
     Map<String, Double> positionMap = loadPositions(accountId);
@@ -72,7 +79,9 @@ public class ReconciliationService {
       lotEntities = rebuildTaxLots(userId, accountId, entries, req.getLotMethod());
       report.setTaxLotsRebuilt(true);
     } else {
-      lotEntities = taxLots.findByUserIdAndAccountIdOrderByUpdatedAtDesc(userId, accountId);
+      lotEntities = orgId == null
+          ? taxLots.findByUserIdAndAccountIdOrderByUpdatedAtDesc(userId, accountId)
+          : taxLots.findByUserIdAndOrgIdAndAccountIdOrderByUpdatedAtDesc(userId, orgId, accountId);
     }
 
     report.setTaxLotCount(lotEntities.size());
@@ -200,10 +209,15 @@ public class ReconciliationService {
     }
 
     List<TaxLotEntity> allLots = new ArrayList<>();
-    allLots.addAll(toEntities(userId, accountId, open));
-    allLots.addAll(toEntities(userId, accountId, closed));
+    String orgId = tenantContext.getOrgId();
+    allLots.addAll(toEntities(userId, orgId, accountId, open));
+    allLots.addAll(toEntities(userId, orgId, accountId, closed));
 
-    taxLots.deleteByUserIdAndAccountId(userId, accountId);
+    if (orgId == null) {
+      taxLots.deleteByUserIdAndAccountId(userId, accountId);
+    } else {
+      taxLots.deleteByUserIdAndOrgIdAndAccountId(userId, orgId, accountId);
+    }
     taxLots.saveAll(allLots);
     return allLots;
   }
@@ -218,13 +232,14 @@ public class ReconciliationService {
     }
   }
 
-  private List<TaxLotEntity> toEntities(String userId, String accountId, List<LotState> lots) {
+  private List<TaxLotEntity> toEntities(String userId, String orgId, String accountId, List<LotState> lots) {
     List<TaxLotEntity> out = new ArrayList<>();
     Instant now = Instant.now();
     for (LotState lot : lots) {
       TaxLotEntity entity = new TaxLotEntity();
       entity.setId(UUID.randomUUID().toString());
       entity.setUserId(userId);
+      entity.setOrgId(orgId);
       entity.setAccountId(accountId);
       entity.setSymbol(lot.symbol);
       entity.setQuantity(lot.remainingQuantity);

@@ -1044,4 +1044,186 @@ class Api {
     }
     throw Exception(res.body);
   }
+
+  static Future<Map<String, dynamic>> bankingAccount() async {
+    final token = await TokenStore.getToken();
+    final res = await http.get(_u('/api/v1/banking/account'),
+      headers: {'Authorization':'Bearer ${token ?? ''}'},
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> bankingTransfers({int limit = 50}) async {
+    final token = await TokenStore.getToken();
+    final uri = _u('/api/v1/banking/transfers').replace(queryParameters: {'limit': '$limit'});
+    final res = await http.get(uri, headers: {'Authorization':'Bearer ${token ?? ''}'});
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> bankingTransfer(Map<String, dynamic> body) async {
+    final token = await TokenStore.getToken();
+    final res = await http.post(_u('/api/v1/banking/transfer'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode(body),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> screenerQuery(Map<String, dynamic> body) async {
+    final token = await TokenStore.getToken();
+    final res = await http.post(_u('/api/v1/screeners/query'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode(body),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> wealthPlans() async {
+    final token = await TokenStore.getToken();
+    final res = await http.get(_u('/api/v1/wealth/plan'),
+      headers: {'Authorization':'Bearer ${token ?? ''}'},
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> createWealthPlan(Map<String, dynamic> body) async {
+    final token = await TokenStore.getToken();
+    final res = await http.post(_u('/api/v1/wealth/plan'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode(body),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> simulateWealthPlan(String id, {Map<String, dynamic>? body}) async {
+    final token = await TokenStore.getToken();
+    final res = await http.post(_u('/api/v1/wealth/plan/$id/simulate'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode(body ?? <String, dynamic>{}),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> rewardOffers() async {
+    final token = await TokenStore.getToken();
+    final res = await http.get(_u('/api/v1/rewards/offers'),
+      headers: {'Authorization':'Bearer ${token ?? ''}'},
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> rewardEnrollments() async {
+    final token = await TokenStore.getToken();
+    final res = await http.get(_u('/api/v1/rewards/enrollments'),
+      headers: {'Authorization':'Bearer ${token ?? ''}'},
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> rewardEnroll(String offerId) async {
+    final token = await TokenStore.getToken();
+    final res = await http.post(_u('/api/v1/rewards/enroll'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode({'offerId': offerId}),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> rewardEvaluate({String? enrollmentId}) async {
+    final token = await TokenStore.getToken();
+    final body = enrollmentId == null || enrollmentId.isEmpty ? <String, dynamic>{} : {'enrollmentId': enrollmentId};
+    final res = await http.post(_u('/api/v1/rewards/evaluate'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode(body),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> surveillanceAlerts({int limit = 50}) async {
+    final token = await TokenStore.getToken();
+    final uri = _u('/api/v1/surveillance/alerts').replace(queryParameters: {'limit': '$limit'});
+    final res = await http.get(uri, headers: {'Authorization':'Bearer ${token ?? ''}'});
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> bestExecution({String? symbol, int limit = 50}) async {
+    final token = await TokenStore.getToken();
+    final params = <String, String>{'limit': '$limit'};
+    if (symbol != null && symbol.isNotEmpty) params['symbol'] = symbol;
+    final uri = _u('/api/v1/best-execution').replace(queryParameters: params);
+    final res = await http.get(uri, headers: {'Authorization':'Bearer ${token ?? ''}'});
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> portfolioBuilderAnalyze(List<Map<String, dynamic>> holdings) async {
+    final token = await TokenStore.getToken();
+    final res = await http.post(_u('/api/v1/portfolio/builder/analyze'),
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ${token ?? ''}'},
+      body: jsonEncode({'holdings': holdings}),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<Map<String, dynamic>> orgAdminSummary() async {
+    final token = await TokenStore.getToken();
+    final res = await http.get(_u('/api/v1/admin/org/summary'),
+      headers: {'Authorization':'Bearer ${token ?? ''}'},
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(res.body);
+  }
+
+  static Future<List<dynamic>> orgAdminAuditEvents({int limit = 50}) async {
+    final token = await TokenStore.getToken();
+    final uri = _u('/api/v1/admin/org/audit/events').replace(queryParameters: {'limit': '$limit'});
+    final res = await http.get(uri, headers: {'Authorization':'Bearer ${token ?? ''}'});
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body) as List<dynamic>;
+    }
+    throw Exception(res.body);
+  }
 }

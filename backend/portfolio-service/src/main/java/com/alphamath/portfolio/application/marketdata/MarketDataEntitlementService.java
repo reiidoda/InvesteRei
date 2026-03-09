@@ -18,6 +18,7 @@ import com.alphamath.portfolio.infrastructure.persistence.MarketDataEntitlementE
 import com.alphamath.portfolio.infrastructure.persistence.MarketDataEntitlementRepository;
 import com.alphamath.portfolio.infrastructure.persistence.MarketDataLicenseEntity;
 import com.alphamath.portfolio.infrastructure.persistence.MarketDataLicenseRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,17 +41,20 @@ public class MarketDataEntitlementService {
   private final InstrumentRepository instruments;
   private final ExchangeRepository exchanges;
   private final MarketDataEntitlementProperties properties;
+  private final TenantContext tenantContext;
 
   public MarketDataEntitlementService(MarketDataLicenseRepository licenses,
                                       MarketDataEntitlementRepository entitlements,
                                       InstrumentRepository instruments,
                                       ExchangeRepository exchanges,
-                                      MarketDataEntitlementProperties properties) {
+                                      MarketDataEntitlementProperties properties,
+                                      TenantContext tenantContext) {
     this.licenses = licenses;
     this.entitlements = entitlements;
     this.instruments = instruments;
     this.exchanges = exchanges;
     this.properties = properties;
+    this.tenantContext = tenantContext;
   }
 
   public boolean enforcementEnabled() {
@@ -58,11 +62,16 @@ public class MarketDataEntitlementService {
   }
 
   public List<MarketDataLicense> listLicenses(String userId, String status) {
+    String orgId = tenantContext.getOrgId();
     List<MarketDataLicenseEntity> rows;
     if (status != null && !status.isBlank()) {
-      rows = licenses.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status.trim().toUpperCase(Locale.US));
+      rows = orgId == null
+          ? licenses.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status.trim().toUpperCase(Locale.US))
+          : licenses.findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(userId, orgId, status.trim().toUpperCase(Locale.US));
     } else {
-      rows = licenses.findByUserIdOrderByCreatedAtDesc(userId);
+      rows = orgId == null
+          ? licenses.findByUserIdOrderByCreatedAtDesc(userId)
+          : licenses.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
     }
     return rows.stream().map(this::toDto).toList();
   }
@@ -72,13 +81,18 @@ public class MarketDataEntitlementService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "provider is required");
     }
     MarketDataLicenseEntity entity = null;
+    String orgId = tenantContext.getOrgId();
     if (req.getId() != null && !req.getId().isBlank()) {
       entity = licenses.findById(req.getId()).orElse(null);
+      if (entity != null && (!userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId())))) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "license not found");
+      }
     }
     if (entity == null) {
       entity = new MarketDataLicenseEntity();
       entity.setId(UUID.randomUUID().toString());
       entity.setUserId(userId);
+      entity.setOrgId(orgId);
       entity.setCreatedAt(Instant.now());
     }
     entity.setProvider(req.getProvider().trim());
@@ -96,11 +110,16 @@ public class MarketDataEntitlementService {
   }
 
   public List<MarketDataEntitlement> listEntitlements(String userId, String status) {
+    String orgId = tenantContext.getOrgId();
     List<MarketDataEntitlementEntity> rows;
     if (status != null && !status.isBlank()) {
-      rows = entitlements.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status.trim().toUpperCase(Locale.US));
+      rows = orgId == null
+          ? entitlements.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status.trim().toUpperCase(Locale.US))
+          : entitlements.findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(userId, orgId, status.trim().toUpperCase(Locale.US));
     } else {
-      rows = entitlements.findByUserIdOrderByCreatedAtDesc(userId);
+      rows = orgId == null
+          ? entitlements.findByUserIdOrderByCreatedAtDesc(userId)
+          : entitlements.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
     }
     return rows.stream().map(this::toDto).toList();
   }
@@ -110,13 +129,18 @@ public class MarketDataEntitlementService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "entitlementType is required");
     }
     MarketDataEntitlementEntity entity = null;
+    String orgId = tenantContext.getOrgId();
     if (req.getId() != null && !req.getId().isBlank()) {
       entity = entitlements.findById(req.getId()).orElse(null);
+      if (entity != null && (!userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId())))) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "entitlement not found");
+      }
     }
     if (entity == null) {
       entity = new MarketDataEntitlementEntity();
       entity.setId(UUID.randomUUID().toString());
       entity.setUserId(userId);
+      entity.setOrgId(orgId);
       entity.setCreatedAt(Instant.now());
     }
     entity.setEntitlementType(req.getEntitlementType().name());
@@ -214,8 +238,11 @@ public class MarketDataEntitlementService {
   }
 
   private EntitlementSets loadEntitlements(String userId) {
-    List<MarketDataEntitlementEntity> rows = entitlements.findByUserIdAndStatusOrderByCreatedAtDesc(
-        userId, MarketDataEntitlementStatus.ACTIVE.name());
+    String orgId = tenantContext.getOrgId();
+    List<MarketDataEntitlementEntity> rows = orgId == null
+        ? entitlements.findByUserIdAndStatusOrderByCreatedAtDesc(userId, MarketDataEntitlementStatus.ACTIVE.name())
+        : entitlements.findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(
+            userId, orgId, MarketDataEntitlementStatus.ACTIVE.name());
     EntitlementSets sets = new EntitlementSets();
     for (MarketDataEntitlementEntity row : rows) {
       MarketDataEntitlementType type = parseEntitlementType(row.getEntitlementType());

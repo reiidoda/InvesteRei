@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/login.dart';
+import 'screens/home.dart';
 import 'screens/portfolio_lab.dart';
+import 'screens/portfolio_builder.dart';
 import 'screens/audit_log.dart';
 import 'screens/market_data.dart';
 import 'screens/auto_invest.dart';
@@ -11,6 +13,13 @@ import 'screens/alerts.dart';
 import 'screens/statements.dart';
 import 'screens/research.dart';
 import 'screens/manual_trade.dart';
+import 'screens/banking.dart';
+import 'screens/wealth_plan.dart';
+import 'screens/screener.dart';
+import 'screens/rewards.dart';
+import 'screens/surveillance.dart';
+import 'screens/best_execution.dart';
+import 'screens/org_admin.dart';
 
 void main() {
   runApp(const InvesteReiApp());
@@ -28,8 +37,11 @@ class InvesteReiApp extends StatelessWidget {
         useMaterial3: true,
       ),
       routes: {
-        '/': (_) => const PortfolioLabScreen(),
+        '/': (_) => const HomeScreen(),
+        '/home': (_) => const HomeScreen(),
         '/login': (_) => const LoginScreen(),
+        '/portfolio-lab': (_) => const PortfolioLabScreen(),
+        '/portfolio-builder': (_) => const PortfolioBuilderScreen(),
         '/audit': (_) => const AuditLogScreen(),
         '/market-data': (_) => const MarketDataScreen(),
         '/auto-invest': (_) => const AutoInvestScreen(),
@@ -40,6 +52,13 @@ class InvesteReiApp extends StatelessWidget {
         '/statements': (_) => const StatementsScreen(),
         '/research': (_) => const ResearchScreen(),
         '/manual-trade': (_) => const ManualTradeScreen(),
+        '/banking': (_) => const BankingScreen(),
+        '/wealth-plan': (_) => const WealthPlanScreen(),
+        '/screeners': (_) => const ScreenerScreen(),
+        '/rewards': (_) => const RewardsScreen(),
+        '/surveillance': (_) => const SurveillanceScreen(),
+        '/best-execution': (_) => const BestExecutionScreen(),
+        '/org-admin': (_) => const OrgAdminScreen(),
       },
       initialRoute: '/',
     );

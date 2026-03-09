@@ -134,6 +134,10 @@ spring:
           uri: ${services.portfolio}
           predicates:
             - Path=/api/v1/alerts/**
+        - id: admin
+          uri: ${services.portfolio}
+          predicates:
+            - Path=/api/v1/admin/**
         - id: brokers
           uri: ${services.portfolio}
           predicates:

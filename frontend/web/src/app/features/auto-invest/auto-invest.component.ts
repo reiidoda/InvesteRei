@@ -189,7 +189,7 @@ import { API_BASE } from '../../core/api';
         <div *ngFor="let p of plans()" style="border:1px solid #eee; border-radius:12px; padding:12px; margin-top:8px;">
           <div class="row">
           <div style="flex:2;"><strong>{{p.name}}</strong> <span class="small">({{p.status}})</span></div>
-          <div style="flex:1;">{{p.schedule}} @ {{p.scheduleTimeUtc || 'anytime'}}</div>
+          <div style="flex:1;">{{p.schedule}} &#64; {{p.scheduleTimeUtc || 'anytime'}}</div>
           <div style="flex:1;">Drift: {{p.driftThreshold}}</div>
         </div>
         <div class="small">Symbols: {{p.symbols?.join(', ')}}</div>
@@ -1119,11 +1119,11 @@ export class AutoInvestComponent {
       enabled: this.prefEnabled,
       types
     };
-    if (this.prefQuietStart !== null && this.prefQuietStart !== undefined && this.prefQuietStart !== '') {
-      body.quietStartHour = Number(this.prefQuietStart);
+    if (this.prefQuietStart !== null && this.prefQuietStart !== undefined) {
+      body.quietStartHour = this.prefQuietStart;
     }
-    if (this.prefQuietEnd !== null && this.prefQuietEnd !== undefined && this.prefQuietEnd !== '') {
-      body.quietEndHour = Number(this.prefQuietEnd);
+    if (this.prefQuietEnd !== null && this.prefQuietEnd !== undefined) {
+      body.quietEndHour = this.prefQuietEnd;
     }
     if (this.prefTimezone && this.prefTimezone.trim()) {
       body.timezone = this.prefTimezone.trim();

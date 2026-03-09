@@ -9,6 +9,7 @@
   <properties>
     <java.version>21</java.version>
     <spring.boot.version>3.3.5</spring.boot.version>
+    <lombok.version>1.18.42</lombok.version>
     <flyway.version>10.21.0</flyway.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
   </properties>
@@ -97,6 +98,7 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
       <optional>true</optional>
     </dependency>
 
@@ -113,6 +115,7 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring.boot.version}</version>
         <configuration>
           <finalName>portfolio-service</finalName>
         </configuration>
@@ -123,6 +126,21 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>${java.version}</release>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
       </plugin>
     </plugins>
   </build>

@@ -8,4 +8,10 @@ import java.util.List;
 public interface ResearchNoteRepository extends JpaRepository<ResearchNoteEntity, String> {
   List<ResearchNoteEntity> findByUserIdOrderByPublishedAtDesc(String userId, PageRequest page);
   List<ResearchNoteEntity> findByUserIdAndSourceOrderByPublishedAtDesc(String userId, String source, PageRequest page);
+
+  List<ResearchNoteEntity> findByUserIdAndOrgIdOrderByPublishedAtDesc(String userId, String orgId, PageRequest page);
+  List<ResearchNoteEntity> findByUserIdAndOrgIdAndSourceOrderByPublishedAtDesc(String userId, String orgId, String source,
+                                                                             PageRequest page);
+
+  long countByOrgId(String orgId);
 }

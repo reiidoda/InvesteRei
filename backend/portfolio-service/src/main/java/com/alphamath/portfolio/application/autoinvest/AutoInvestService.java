@@ -977,6 +977,12 @@ public class AutoInvestService {
     }
   }
 
+  private double round(Double value, int scale) {
+    double safe = value == null ? 0.0 : value;
+    double factor = Math.pow(10.0, Math.max(0, scale));
+    return Math.round(safe * factor) / factor;
+  }
+
   private static class RunInputs {
     TradeProposalRequest request;
     Map<String, Double> currentWeights;

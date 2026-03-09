@@ -9,6 +9,7 @@ import com.alphamath.portfolio.infrastructure.ai.AiForecastService;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
 import com.alphamath.portfolio.infrastructure.persistence.ResearchNoteEntity;
 import com.alphamath.portfolio.infrastructure.persistence.ResearchNoteRepository;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -37,15 +38,18 @@ public class ResearchService {
   private final MarketDataService marketData;
   private final AiForecastService ai;
   private final NotificationService notifications;
+  private final TenantContext tenantContext;
 
   public ResearchService(ResearchNoteRepository notes,
                          MarketDataService marketData,
                          AiForecastService ai,
-                         NotificationService notifications) {
+                         NotificationService notifications,
+                         TenantContext tenantContext) {
     this.notes = notes;
     this.marketData = marketData;
     this.ai = ai;
     this.notifications = notifications;
+    this.tenantContext = tenantContext;
   }
 
   public ResearchNote create(String userId, ResearchNoteRequest req) {
@@ -59,6 +63,7 @@ public class ResearchService {
     ResearchNoteEntity entity = new ResearchNoteEntity();
     entity.setId(UUID.randomUUID().toString());
     entity.setUserId(userId);
+    entity.setOrgId(tenantContext.getOrgId());
     entity.setSource(req.getSource().trim());
     entity.setHeadline(req.getHeadline().trim());
     entity.setSummary(req.getSummary());
@@ -83,18 +88,24 @@ public class ResearchService {
   public List<ResearchNote> list(String userId, String source, int limit) {
     int size = limit <= 0 ? 50 : Math.min(limit, 200);
     PageRequest page = PageRequest.of(0, size);
+    String orgId = tenantContext.getOrgId();
     List<ResearchNoteEntity> rows;
     if (source != null && !source.isBlank()) {
-      rows = notes.findByUserIdAndSourceOrderByPublishedAtDesc(userId, source.trim(), page);
+      rows = orgId == null
+          ? notes.findByUserIdAndSourceOrderByPublishedAtDesc(userId, source.trim(), page)
+          : notes.findByUserIdAndOrgIdAndSourceOrderByPublishedAtDesc(userId, orgId, source.trim(), page);
     } else {
-      rows = notes.findByUserIdOrderByPublishedAtDesc(userId, page);
+      rows = orgId == null
+          ? notes.findByUserIdOrderByPublishedAtDesc(userId, page)
+          : notes.findByUserIdAndOrgIdOrderByPublishedAtDesc(userId, orgId, page);
     }
     return rows.stream().map(this::toDto).toList();
   }
 
   public ResearchNote refreshAi(String userId, String id, int lookback, int horizon) {
+    String orgId = tenantContext.getOrgId();
     ResearchNoteEntity entity = notes.findById(id).orElse(null);
-    if (entity == null || !userId.equals(entity.getUserId())) {
+    if (entity == null || !userId.equals(entity.getUserId()) || (orgId != null && !orgId.equals(entity.getOrgId()))) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Research note not found");
     }
     applyAiSignals(entity, lookback, horizon);
@@ -104,7 +115,11 @@ public class ResearchService {
 
   public List<ResearchNote> refreshAll(String userId, int lookback, int horizon) {
     List<ResearchNote> out = new ArrayList<>();
-    for (ResearchNoteEntity entity : notes.findByUserIdOrderByPublishedAtDesc(userId, PageRequest.of(0, 200))) {
+    String orgId = tenantContext.getOrgId();
+    List<ResearchNoteEntity> rows = orgId == null
+        ? notes.findByUserIdOrderByPublishedAtDesc(userId, PageRequest.of(0, 200))
+        : notes.findByUserIdAndOrgIdOrderByPublishedAtDesc(userId, orgId, PageRequest.of(0, 200));
+    for (ResearchNoteEntity entity : rows) {
       applyAiSignals(entity, lookback, horizon);
       notes.save(entity);
       out.add(toDto(entity));

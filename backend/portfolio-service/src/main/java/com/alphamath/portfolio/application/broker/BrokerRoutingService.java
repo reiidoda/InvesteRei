@@ -9,6 +9,7 @@ import com.alphamath.portfolio.domain.execution.TimeInForce;
 import com.alphamath.portfolio.infrastructure.persistence.BrokerAccountEntity;
 import com.alphamath.portfolio.infrastructure.persistence.BrokerAccountRepository;
 import com.alphamath.portfolio.infrastructure.persistence.JsonUtils;
+import com.alphamath.portfolio.security.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.stereotype.Service;
 
@@ -20,10 +21,12 @@ import java.util.List;
 public class BrokerRoutingService {
   private final BrokerCatalog catalog;
   private final BrokerAccountRepository accounts;
+  private final TenantContext tenantContext;
 
-  public BrokerRoutingService(BrokerCatalog catalog, BrokerAccountRepository accounts) {
+  public BrokerRoutingService(BrokerCatalog catalog, BrokerAccountRepository accounts, TenantContext tenantContext) {
     this.catalog = catalog;
     this.accounts = accounts;
+    this.tenantContext = tenantContext;
   }
 
   public List<BrokerRecommendation> recommend(String userId,
@@ -32,7 +35,10 @@ public class BrokerRoutingService {
                                               OrderType orderType,
                                               TimeInForce timeInForce,
                                               String currency) {
-    List<BrokerAccountEntity> linked = accounts.findByUserIdOrderByCreatedAtDesc(userId);
+    String orgId = tenantContext.getOrgId();
+    List<BrokerAccountEntity> linked = orgId == null
+        ? accounts.findByUserIdOrderByCreatedAtDesc(userId)
+        : accounts.findByUserIdAndOrgIdOrderByCreatedAtDesc(userId, orgId);
     List<BrokerRecommendation> out = new ArrayList<>();
 
     if (linked.isEmpty()) {

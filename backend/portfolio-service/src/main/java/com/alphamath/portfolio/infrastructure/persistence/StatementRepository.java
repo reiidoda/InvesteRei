@@ -7,4 +7,9 @@ import java.util.List;
 
 public interface StatementRepository extends JpaRepository<StatementEntity, String> {
   List<StatementEntity> findByUserIdAndAccountIdOrderByPeriodEndDesc(String userId, String accountId, PageRequest page);
+
+  List<StatementEntity> findByUserIdAndOrgIdAndAccountIdOrderByPeriodEndDesc(String userId, String orgId, String accountId,
+                                                                            PageRequest page);
+
+  long countByOrgId(String orgId);
 }

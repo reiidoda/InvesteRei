@@ -1,3 +1,5 @@
+![InvesteRei Monochrome Banner](branding/readme-banner.png)
+
 # InvesteRei — AI Automated Investing, with Your Approval
 
 InvesteRei is an AI-powered investing autopilot that builds and manages a portfolio for you, then asks for a simple **Approve / Decline** before any trade happens.
@@ -45,6 +47,7 @@ InvesteRei: automated investing that behaves like a professional system — but 
 Broker parity matrix: `docs/broker-parity.md`.
 JPM-style parity spec: `docs/jpm-platform-parity.md`.
 Enterprise baseline: `docs/enterprise-features.md`.
+Engineering and open-source docs index: `docs/README.md`.
 
 ## Web app (Angular 17)
 - Login + token handling
@@ -69,12 +72,20 @@ Enterprise baseline: `docs/enterprise-features.md`.
 
 ## Mobile app (Flutter)
 - Login + API base selection
-- Portfolio Lab hub with quick navigation
+- Home hub with enterprise module navigation
+- Portfolio Lab + Portfolio Builder diversification diagnostics
 - Market Data: cached quotes + provider history + CSV/HTTP backfills
 - Auto-Invest: plan creation, run history, notifications
+- Banking: account state + instant internal transfers
+- Wealth Plan: plan creation + Monte Carlo simulation
+- Screeners: valuation/fundamental/research filters
 - Notification preferences + delivery history
 - Watchlists + AI insights
 - Alerts + trigger workflow
+- Rewards offers + enrollment/evaluation
+- Best execution record viewer
+- Surveillance alert viewer
+- Org admin summary + audit feed
 - Statements + tax lots + corporate actions + reconciliation
 - Research notes + AI refresh
 - Simulation: submit backtests, poll job status
@@ -82,6 +93,13 @@ Enterprise baseline: `docs/enterprise-features.md`.
 - Manual trading: broker accounts, AI order review, order placement
 - Audit log viewer (approvals and execution events)
 - See `mobile/README.md` for run steps
+
+## Open source project docs
+- Code of Conduct: `CODE_OF_CONDUCT.md`
+- Contributing: `CONTRIBUTING.md`
+- Security Policy: `SECURITY.md`
+- Governance: `GOVERNANCE.md`
+- Support: `SUPPORT.md`
 
 ## Current state (implemented)
 - One-command local stack with Docker Compose + Makefile

@@ -10,4 +10,13 @@ public interface MarketDataEntitlementRepository extends JpaRepository<MarketDat
   List<MarketDataEntitlementEntity> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);
 
   List<MarketDataEntitlementEntity> findByUserIdAndEntitlementTypeAndStatus(String userId, String entitlementType, String status);
+
+  List<MarketDataEntitlementEntity> findByUserIdAndOrgIdOrderByCreatedAtDesc(String userId, String orgId);
+
+  List<MarketDataEntitlementEntity> findByUserIdAndOrgIdAndStatusOrderByCreatedAtDesc(String userId, String orgId, String status);
+
+  List<MarketDataEntitlementEntity> findByUserIdAndOrgIdAndEntitlementTypeAndStatus(String userId, String orgId, String entitlementType,
+                                                                                   String status);
+
+  long countByOrgId(String orgId);
 }

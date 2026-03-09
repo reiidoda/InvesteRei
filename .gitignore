@@ -1,0 +1,49 @@
+# macOS / OS files
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor / IDE
+.idea/
+.vscode/
+*.iml
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# Logs / temp
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Java / Maven / Spring
+target/
+**/target/
+.mvn/wrapper/maven-wrapper.jar
+
+# Node / frontend
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+**/build/
+
+# Coverage / reports
+coverage/
+**/coverage/
+*.lcov

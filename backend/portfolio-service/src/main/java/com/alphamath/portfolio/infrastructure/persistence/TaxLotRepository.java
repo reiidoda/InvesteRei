@@ -14,4 +14,15 @@ public interface TaxLotRepository extends JpaRepository<TaxLotEntity, String> {
   List<TaxLotEntity> findByUserIdAndAccountIdAndSymbolOrderByUpdatedAtDesc(String userId, String accountId,
                                                                           String symbol, PageRequest page);
   void deleteByUserIdAndAccountId(String userId, String accountId);
+
+  List<TaxLotEntity> findByUserIdAndOrgIdAndAccountIdOrderByUpdatedAtDesc(String userId, String orgId, String accountId,
+                                                                        PageRequest page);
+  List<TaxLotEntity> findByUserIdAndOrgIdAndAccountIdOrderByUpdatedAtDesc(String userId, String orgId, String accountId);
+  List<TaxLotEntity> findByUserIdAndOrgIdAndAccountIdAndStatusOrderByUpdatedAtDesc(String userId, String orgId, String accountId,
+                                                                                  TaxLotStatus status, PageRequest page);
+  List<TaxLotEntity> findByUserIdAndOrgIdAndAccountIdAndSymbolOrderByUpdatedAtDesc(String userId, String orgId, String accountId,
+                                                                                  String symbol, PageRequest page);
+  void deleteByUserIdAndOrgIdAndAccountId(String userId, String orgId, String accountId);
+
+  long countByOrgId(String orgId);
 }
