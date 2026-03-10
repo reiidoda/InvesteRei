@@ -32,6 +32,7 @@
 - [Open Source Roadmap](ROADMAP.md)
 - [Software Configuration Management](SCM.md)
 - [Engineering Reference Foundations](REFERENCE_FOUNDATIONS.md)
+- [SEO and Search Growth Playbook](SEO_GROWTH_PLAYBOOK.md)
 
 ## AI/ML
 - [AI/ML/Data Science Strategy](AI_ML_DS_STRATEGY.md)

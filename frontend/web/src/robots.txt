@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Update this URL if production host changes.
+Sitemap: https://reiidoda.github.io/InvesteRei/sitemap.xml

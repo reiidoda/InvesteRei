@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: "InvesteRei"
+message: "If you use this project in research, please cite it using this metadata."
+type: software
+authors:
+  - family-names: "Doda"
+    given-names: "Rei"
+repository-code: "https://github.com/reiidoda/InvesteRei"
+license: "Apache-2.0"
+url: "https://github.com/reiidoda/InvesteRei"
+abstract: "Open-source AI investing platform with human-in-the-loop trade approval, portfolio automation, and enterprise architecture."
+keywords:
+  - ai investing
+  - automated investing
+  - algorithmic trading
+  - portfolio management
+  - wealth management
+  - fintech

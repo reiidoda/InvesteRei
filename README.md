@@ -2,7 +2,25 @@
 
 # InvesteRei — AI Automated Investing, with Your Approval
 
-InvesteRei is an AI-powered investing autopilot that builds and manages a portfolio for you, then asks for a simple **Approve / Decline** before any trade happens.
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-black.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/reiidoda/InvesteRei?style=flat&color=black)](https://github.com/reiidoda/InvesteRei/stargazers)
+[![Forks](https://img.shields.io/github/forks/reiidoda/InvesteRei?style=flat&color=black)](https://github.com/reiidoda/InvesteRei/network/members)
+[![Issues](https://img.shields.io/github/issues/reiidoda/InvesteRei?style=flat&color=black)](https://github.com/reiidoda/InvesteRei/issues)
+
+InvesteRei is an AI-powered investing and wealth management platform that combines algorithmic portfolio automation, risk controls, and human approval before execution.
+
+## Search-focused summary
+InvesteRei is an open-source **AI investing platform** for **automated investing**, **algorithmic trading**, **portfolio management**, **wealth planning**, and **enterprise brokerage integrations** across web and mobile.
+
+## Table of contents
+- [How it works (simple)](#how-it-works-simple)
+- [Why it feels better than traditional investing apps](#why-it-feels-better-than-traditional-investing-apps)
+- [Architecture (Enterprise)](#architecture-enterprise)
+- [Web app (Angular 17)](#web-app-angular-17)
+- [Mobile app (Flutter)](#mobile-app-flutter)
+- [Open source project docs](#open-source-project-docs)
+- [Current state (implemented)](#current-state-implemented)
+- [Quick start (Makefile)](#quick-start-makefile)
 
 ## How it works (simple)
 1. Connect your broker and choose your risk level (conservative to aggressive).
@@ -96,12 +114,14 @@ Engineering and open-source docs index: `docs/README.md`.
 
 ## Open source project docs
 - License: `LICENSE` (Apache-2.0)
+- Citation metadata: `CITATION.cff`
 - Code of Conduct: `CODE_OF_CONDUCT.md`
 - Contributing: `CONTRIBUTING.md`
 - Security Policy: `SECURITY.md`
 - Governance: `GOVERNANCE.md`
 - Support: `SUPPORT.md`
 - Roadmap + milestones/issues map: `docs/ROADMAP.md`
+- SEO/search growth playbook: `docs/SEO_GROWTH_PLAYBOOK.md`
 
 ## Current state (implemented)
 - One-command local stack with Docker Compose + Makefile
