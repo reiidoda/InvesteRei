@@ -1,5 +1,11 @@
 # Low-Level Design (LLD)
 
+## Related Documents
+- `docs/HLD.md`
+- `docs/UML.md`
+- `docs/API_DESIGN_SECURITY.md`
+- `docs/TEST_STRATEGY.md`
+
 ## Backend Package Structure
 Each Spring service follows a layered package model:
 - `web`: REST controllers, request/response mapping.

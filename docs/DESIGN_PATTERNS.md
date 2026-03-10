@@ -8,6 +8,8 @@
 - **Strategy Pattern**: provider routing and execution mode selections.
 - **Factory-style Construction**: request-to-entity assembly for deterministic writes.
 - **DTO Mapper Pattern**: explicit conversion methods to avoid leaking persistence shapes.
+- **Outbox Pattern (target)**: reliable event publication from transactional writes.
+- **Saga Pattern (target)**: orchestrated compensation for multi-step distributed workflows.
 
 ## Pattern Placement
 ```mermaid

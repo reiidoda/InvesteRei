@@ -1,72 +1,92 @@
-# Test Strategy
+# Testing Strategy
 
-## Current Automated Checks
-- Backend service build+tests (Maven):
-  - `backend/auth-service`
-  - `backend/portfolio-service`
-  - `backend/simulation-service`
-  - `backend/gateway`
-- Web production build (Angular):
-  - `frontend/web` via `npm run build`
+## 1. Test Objectives
+- Prove correctness of financial workflows and tenant boundaries.
+- Prevent authz regressions in enterprise org-scoped APIs.
+- Validate data integrity across trading, banking, and reporting domains.
+- Gate releases with measurable quality criteria.
 
-## Recommended Test Layers
-1. **Unit tests** for service-level business logic and validators.
-2. **Repository tests** for user+org scoped query behavior.
-3. **API contract tests** for critical workflows:
-   - Auth + MFA
-   - SSO callback handling
-   - SCIM provisioning operations
-   - Trade proposal/execution lifecycle
-   - Auto-invest runs/fees/minimum balance checks
-4. **End-to-end smoke tests** through gateway using Docker stack.
-
-## Test Pyramid and Release Gate
+## 2. Test Pyramid
 ```mermaid
 flowchart TB
-  subgraph Dev
-    U["Unit Tests"]
-    R["Repository/Integration Tests"]
-    A["API Contract Tests"]
-    E["End-to-End Smoke Tests"]
-  end
-
-  U --> R
-  R --> A
-  A --> E
-  E --> GATE["Release Candidate Gate"]
-  GATE --> REL["Tagged Release"]
+  U["Unit Tests"] --> I["Integration Tests"]
+  I --> C["API Contract Tests"]
+  C --> E["End-to-End Gateway Tests"]
+  E --> P["Performance/Security Tests"]
 ```
 
-## Org Security Regression Matrix
-- Verify all org-scoped endpoints reject cross-org access.
-- Verify admin endpoints require org admin/owner roles.
-- Verify audit outputs remain tenant-scoped.
+## 3. Layered Strategy
 
-## Mobile/Web Validation
-- Ensure key screens can load and submit against authenticated APIs.
-- Keep route-to-endpoint coverage checklist synchronized with new modules.
+### Unit Tests
+- Domain policies, calculators, fee logic, validation rules.
+- Service-level decision logic (approval, limits, role checks).
 
-## CI Recommendation
-- Run Maven tests and Angular build on every PR.
-- Add mobile static checks (`flutter analyze`, `flutter test`) where Flutter SDK is available.
+### Integration Tests
+- Repository behavior with org/user scoping.
+- Flyway migration compatibility and rollback checks.
+- Redis cache and queue interactions (where applicable).
 
-## CI Pipeline Flow
+### API Contract Tests
+- Auth login/MFA/SSO/SCIM.
+- Trading proposal -> decision -> execution intent.
+- Banking transfer atomicity and balance invariants.
+- Wealth plan simulation contract and constraints.
+
+### End-to-End Tests
+- Cross-service flow through gateway on dockerized stack.
+- Critical user journeys on web and mobile clients.
+
+### Non-Functional Tests
+- Load test on read-heavy market and reporting APIs.
+- Soak test for scheduler and simulation workers.
+- Security tests: broken auth, token replay, tenant escape, rate-limit bypass.
+
+## 4. Minimum Release Gates
+- Gate 1: Backend modules build and pass tests.
+- Gate 2: Web build passes and smoke tests run.
+- Gate 3: Mobile analyze/test pass.
+- Gate 4: Tenant isolation regression suite passes.
+- Gate 5: Security regression suite passes.
+
+## 5. Coverage Targets
+- Domain and application service lines: >= 80%.
+- Critical paths (auth, trade decision, transfer, fee charge): >= 90% branch coverage.
+- Contract test coverage: all `/api/v1` critical business endpoints.
+
+## 6. Test Data Strategy
+- Seed deterministic fixtures for users, orgs, accounts, plans, and quotes.
+- Use tenant-specific fixture sets to validate isolation.
+- Use synthetic market scenarios for normal, volatile, and stress regimes.
+
+## 7. Environment Matrix
+
+| Environment | Purpose | Data |
+| --- | --- | --- |
+| Local Docker | Feature development and smoke tests | Synthetic fixtures |
+| CI Ephemeral | PR validation | Seeded deterministic |
+| Staging | Release validation and benchmark | Masked non-production |
+| Production | Monitoring and canary validation | Real tenant data |
+
+## 8. Example CI Flow
 ```mermaid
 sequenceDiagram
   autonumber
   participant PR as Pull Request
-  participant CI as CI Pipeline
-  participant BE as Backend Jobs
-  participant FE as Frontend Jobs
-  participant MOB as Mobile Jobs
-  participant REL as Release
+  participant CI as CI
+  participant BE as Backend
+  participant FE as Web
+  participant MOB as Mobile
+  participant SEC as Security Suite
 
-  PR->>CI: Trigger checks
-  CI->>BE: mvn test (all services)
-  CI->>FE: npm run build (web)
-  CI->>MOB: flutter analyze + flutter test
-  BE-->>CI: pass/fail
-  FE-->>CI: pass/fail
-  MOB-->>CI: pass/fail
-  CI-->>REL: Eligible only if all required jobs pass
+  PR->>CI: Open / update PR
+  CI->>BE: Build + unit/integration tests
+  CI->>FE: Build + smoke checks
+  CI->>MOB: Analyze + tests
+  CI->>SEC: Authz + tenant + API abuse tests
+  SEC-->>CI: Result
+  CI-->>PR: Required checks status
 ```
+
+## 9. Current Gap Notes
+- Automated test suites are currently limited in-repo and should be expanded per this strategy.
+- Priority implementation order: auth/org scope tests, trade lifecycle tests, banking invariants, mobile smoke coverage.

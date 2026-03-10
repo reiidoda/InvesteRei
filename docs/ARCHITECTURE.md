@@ -1,5 +1,14 @@
 # Architecture
 
+## Related Documents
+- `docs/HLD.md`
+- `docs/LLD.md`
+- `docs/UML.md`
+- `docs/DATABASE_STRATEGY.md`
+- `docs/SCALABILITY_PERFORMANCE.md`
+- `docs/DISTRIBUTED_SYSTEM_DESIGN.md`
+- `docs/API_DESIGN_SECURITY.md`
+
 ## System Overview
 InvesteRei is a modular investing platform with service separation by responsibility:
 - `gateway`: edge routing, JWT validation, rate limiting, identity header propagation.

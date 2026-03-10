@@ -1,5 +1,7 @@
 # OO Design
 
+See also: `docs/SOFTWARE_DESIGN.md`.
+
 ## Core Principles Used
 - **Single Responsibility**: each service class owns a narrow use-case slice.
 - **Dependency Inversion**: controllers depend on service abstractions, services depend on repositories/interfaces.

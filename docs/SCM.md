@@ -1,0 +1,50 @@
+# Software Configuration Management (SCM)
+
+## 1. Scope
+SCM governs source control, branching, versioning, release promotion, and environment configuration.
+
+## 2. Branching and Change Flow
+- `main`: protected integration branch.
+- `codex/*`: assistant-generated task branches.
+- `feature/*`: product development branches.
+- `release/*`: stabilization branches.
+- `hotfix/*`: emergency fixes from production tags.
+
+## 3. Pull Request Rules
+- At least one reviewer approval.
+- Required checks must pass.
+- No direct pushes to protected branches.
+- Link PR to issue/milestone where applicable.
+
+## 4. Commit and Versioning
+- Use structured commit messages (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
+- Adopt semantic versioning (`MAJOR.MINOR.PATCH`).
+- Tag releases and publish release notes with migration notes.
+
+## 5. Configuration Management
+- Environment variables are source-of-truth for deploy-time settings.
+- No secrets in source control.
+- Keep environment overlays for `dev`, `staging`, `prod`.
+- Document default values and required secrets per service.
+
+## 6. SCM Flow
+```mermaid
+flowchart LR
+  ISSUE["Issue/Milestone"] --> BR["Feature Branch"]
+  BR --> PR["Pull Request"]
+  PR --> CI["CI Checks"]
+  CI --> REV["Code Review"]
+  REV --> MAIN["Merge to Main"]
+  MAIN --> REL["Tagged Release"]
+  REL --> DEP["Promote to Env"]
+```
+
+## 7. Artifact and Dependency Controls
+- Lock dependency versions for deterministic builds.
+- Generate SBOMs for release artifacts.
+- Run dependency vulnerability scanning in CI.
+
+## 8. Change Auditability
+- All production changes traceable to PR and tag.
+- Migration scripts versioned with service code.
+- Incident fixes include postmortem and preventive action item.

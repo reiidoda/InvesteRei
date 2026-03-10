@@ -1,55 +1,61 @@
 # Open Source Roadmap
 
-This roadmap is backed by live GitHub milestones and issues in `reiidoda/InvesteRei`.
+This roadmap aligns product parity work, enterprise hardening, and open-source delivery quality.
 
-## Milestone Timeline
+## Release Streams
+- Stream A: Core platform reliability and security.
+- Stream B: Enterprise identity and org governance.
+- Stream C: Banking + investing parity features.
+- Stream D: Developer experience, docs, and quality automation.
+
+## Timeline
 ```mermaid
 gantt
-  title InvesteRei Open Source Delivery Timeline
+  title InvesteRei Enterprise Roadmap
   dateFormat  YYYY-MM-DD
-  section M1
-  "M1 — OSS Foundations & Governance" :m1, 2026-03-10, 2026-04-14
-  section M2
-  "M2 — Reliability & Test Coverage" :m2, 2026-04-15, 2026-05-14
-  section M3
-  "M3 — Enterprise Security & Identity Hardening" :m3, 2026-05-15, 2026-06-14
-  section M4
-  "M4 — Product Parity & Mobile Completion" :m4, 2026-06-15, 2026-07-14
+  section Foundations
+  Architecture Baseline and ADRs         :a1, 2026-03-10, 2026-03-28
+  Quality Gates and Test Harness         :a2, 2026-03-20, 2026-04-20
+
+  section Identity and Security
+  SSO and SCIM Hardening                 :b1, 2026-04-01, 2026-05-10
+  Org Scope Authorization Regression     :b2, 2026-04-15, 2026-05-20
+
+  section Product Parity
+  Banking + Research + Wealth Plan       :c1, 2026-05-01, 2026-06-20
+  Mobile Parity and E2E Coverage         :c2, 2026-05-15, 2026-06-30
+
+  section Scale and Operations
+  Event-driven Data Integration          :d1, 2026-06-01, 2026-07-15
+  Performance and Cost Optimization      :d2, 2026-06-15, 2026-07-30
 ```
 
-## Milestones and Issues
+## Milestone Backlog
 
-### M1 — OSS Foundations & Governance
-- [#1 Define required CI checks and branch protection policy](https://github.com/reiidoda/InvesteRei/issues/1)
-- [#2 Add standardized issue/PR templates and triage workflow](https://github.com/reiidoda/InvesteRei/issues/2)
-- [#3 Introduce ADR process for architecture changes](https://github.com/reiidoda/InvesteRei/issues/3)
+### M1: Engineering Baseline
+- Complete architecture, HLD, LLD, UML, and requirements documentation.
+- Define API governance and schema migration standards.
+- Introduce CI gates for backend build and frontend/mobile build checks.
 
-### M2 — Reliability & Test Coverage
-- [#4 Add org-scope repository/service regression tests](https://github.com/reiidoda/InvesteRei/issues/4)
-- [#5 Add API contract tests for SSO and SCIM flows](https://github.com/reiidoda/InvesteRei/issues/5)
-- [#6 Add end-to-end gateway smoke test suite](https://github.com/reiidoda/InvesteRei/issues/6)
+### M2: Enterprise Security and Identity
+- Complete OIDC/SAML edge-case coverage.
+- Complete SCIM create/update/deactivate + group membership tests.
+- Add tenant isolation security matrix to CI.
 
-### M3 — Enterprise Security & Identity Hardening
-- [#7 Harden SSO assertion/token validation edge cases](https://github.com/reiidoda/InvesteRei/issues/7)
-- [#8 Audit org-role authorization consistency on admin APIs](https://github.com/reiidoda/InvesteRei/issues/8)
-- [#9 Implement tenant isolation security regression matrix](https://github.com/reiidoda/InvesteRei/issues/9)
+### M3: Product Completion
+- Harden trade lifecycle and proposal decision flows.
+- Complete banking instant transfer and wealth plan reliability tests.
+- Ensure mobile parity for all critical enterprise screens.
 
-### M4 — Product Parity & Mobile Completion
-- [#10 Complete mobile enterprise module UX parity](https://github.com/reiidoda/InvesteRei/issues/10)
-- [#11 Add mobile integration tests for critical workflows](https://github.com/reiidoda/InvesteRei/issues/11)
-- [#12 Prepare release readiness checklist and vNext acceptance criteria](https://github.com/reiidoda/InvesteRei/issues/12)
+### M4: Scalability and Operations
+- Introduce event contracts and outbox-based propagation.
+- Add observability SLOs, runbooks, and incident management workflows.
+- Add cost-aware scaling policies and benchmark suite.
 
-## Delivery Flow
-```mermaid
-flowchart LR
-  P1["Milestone Planning"] --> P2["Issue Breakdown"]
-  P2 --> P3["Implementation + Tests"]
-  P3 --> P4["Docs + Release Checklist"]
-  P4 --> P5["Tagged Release"]
-```
+## Delivery Governance
+- Every milestone requires a release readiness review.
+- Every major architecture change requires an ADR.
+- Every critical endpoint requires contract + authorization tests.
 
-## Definition of Done
-- Code merged with passing required checks.
-- Tests and docs updated.
-- Security and tenant-scope regressions covered.
-- Release notes include milestone/issue traceability.
+## Existing Public Tracking
+Live milestone/issues mapping remains in GitHub issues for `reiidoda/InvesteRei`.

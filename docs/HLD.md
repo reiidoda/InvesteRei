@@ -1,5 +1,12 @@
 # High-Level Design (HLD)
 
+## Related Documents
+- `docs/ARCHITECTURE.md`
+- `docs/SOFTWARE_REQUIREMENTS.md`
+- `docs/SOFTWARE_DESIGN.md`
+- `docs/UML.md`
+- `docs/DATABASE_STRATEGY.md`
+
 ## Logical Components
 - **Client Layer**: Angular web + Flutter mobile.
 - **Edge Layer**: Spring Cloud Gateway, auth guard, rate limiter.
@@ -98,3 +105,4 @@ sequenceDiagram
 ## Deployment Topology
 - Containerized services orchestrated with Docker Compose for local stack.
 - Independent horizontal scaling possible per service based on workload profile.
+- Target production topology includes per-domain data stores and event-driven integration.
