@@ -139,8 +139,11 @@ jobs:
           set -euo pipefail
           test -f docs/CI_BRANCH_PROTECTION_POLICY.md
           test -f docs/TENANT_ISOLATION_MATRIX.md
+          test -f docs/RELEASE_READINESS_CHECKLIST.md
           grep -n "CI & Branch Protection Policy" docs/README.md
           grep -n "Tenant Isolation Security Regression Matrix" docs/README.md
+          grep -n "Release Readiness Checklist and vNext Acceptance" docs/README.md
           grep -n "Release Readiness Gate" docs/CI_BRANCH_PROTECTION_POLICY.md
           grep -n "tenant-isolation-matrix" docs/CI_BRANCH_PROTECTION_POLICY.md
           grep -n "docs/TEST_STRATEGY.md" docs/CI_BRANCH_PROTECTION_POLICY.md
+          grep -n "docs/RELEASE_READINESS_CHECKLIST.md" docs/CI_BRANCH_PROTECTION_POLICY.md

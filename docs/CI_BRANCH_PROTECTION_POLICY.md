@@ -9,8 +9,9 @@ Define the mandatory merge quality gate for `main` with explicit, versioned chec
 | --- | --- | --- |
 | `v1.0` | `2026-03-13` | Initial required checks and branch protection baseline. |
 | `v1.1` | `2026-03-13` | Add tenant isolation regression matrix as required check (`Gate 4`). |
+| `v1.2` | `2026-03-13` | Align release gate with versioned release readiness checklist and mobile integration CI coverage. |
 
-## Required Checks (`v1.1`)
+## Required Checks (`v1.2`)
 All pull requests targeting `main` must pass these check contexts:
 
 1. `CI Required Checks / backend-maven-test`
@@ -22,11 +23,11 @@ All pull requests targeting `main` must pass these check contexts:
 These checks are produced by:
 - [ci-required-checks.yml](../.github/workflows/ci-required-checks.yml)
 
-`v1.1` check definitions:
+`v1.2` check definitions:
 - `backend-maven-test`: Maven test run for `auth-service`, `gateway`, `portfolio-service`, and `simulation-service`.
 - `tenant-isolation-matrix`: targeted tenant isolation regression suite execution via `scripts/ci/tenant_isolation_matrix.sh`.
 - `frontend-web-build`: dependency install + Angular production build.
-- `mobile-flutter-quality`: Flutter dependency resolution + `flutter test` when test files exist.
+- `mobile-flutter-quality`: Flutter dependency resolution + non-integration and integration Flutter test suites.
 - `docs-policy-check`: validates policy doc/index/gate references are present.
 
 ## Merge Rules (`main`)
@@ -48,6 +49,8 @@ These checks are produced by:
 This merge policy must stay aligned to:
 - Release gates in [docs/TEST_STRATEGY.md](TEST_STRATEGY.md) (`Gate 1` to `Gate 5`)
 - Milestone release readiness reviews in [docs/ROADMAP.md](ROADMAP.md)
+- Versioned release checklist and vNext acceptance criteria in
+  [docs/RELEASE_READINESS_CHECKLIST.md](RELEASE_READINESS_CHECKLIST.md)
 
 Any change to required checks must update this document version and be reviewed in the same PR.
 
