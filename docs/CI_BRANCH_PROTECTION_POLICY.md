@@ -1,0 +1,59 @@
+# CI & Branch Protection Policy
+
+## Purpose
+Define the mandatory merge quality gate for `main` with explicit, versioned checks and review rules.
+
+## Policy Version
+
+| Version | Date | Notes |
+| --- | --- | --- |
+| `v1.0` | `2026-03-13` | Initial required checks and branch protection baseline. |
+
+## Required Checks (`v1.0`)
+All pull requests targeting `main` must pass these check contexts:
+
+1. `CI Required Checks / backend-maven-test`
+2. `CI Required Checks / frontend-web-build`
+3. `CI Required Checks / mobile-flutter-quality`
+4. `CI Required Checks / docs-policy-check`
+
+These checks are produced by:
+- [ci-required-checks.yml](../.github/workflows/ci-required-checks.yml)
+
+`v1.0` check definitions:
+- `backend-maven-test`: Maven test run for `auth-service`, `gateway`, `portfolio-service`, and `simulation-service`.
+- `frontend-web-build`: dependency install + Angular production build.
+- `mobile-flutter-quality`: Flutter dependency resolution + `flutter test` when test files exist.
+- `docs-policy-check`: validates policy doc/index/gate references are present.
+
+## Merge Rules (`main`)
+1. Pull request only (no direct pushes).
+2. Minimum approvals: `1`.
+3. Last push must be approved by a reviewer other than the pusher.
+4. Stale approvals are dismissed on new commits.
+5. Conversation resolution is required before merge.
+6. Force-push and branch deletion are disabled.
+7. Required checks in this policy must be green.
+
+## Reviewer Expectations
+1. Verify behavior, not only style.
+2. Confirm no regression to human trade approval, risk controls, or auditability.
+3. Ensure tests/docs are updated when behavior changes.
+4. Confirm service boundaries remain intact (no parallel architecture introduced).
+
+## Release Readiness Gate
+This merge policy must stay aligned to:
+- Release gates in [docs/TEST_STRATEGY.md](TEST_STRATEGY.md) (`Gate 1` to `Gate 5`)
+- Milestone release readiness reviews in [docs/ROADMAP.md](ROADMAP.md)
+
+Any change to required checks must update this document version and be reviewed in the same PR.
+
+## Versioned Branch Protection Config
+- [main.json](../.github/branch-protection/main.json)
+- [apply-main.sh](../.github/branch-protection/apply-main.sh)
+
+Apply policy to a repository:
+
+```bash
+.github/branch-protection/apply-main.sh reiidoda/InvesteRei
+```

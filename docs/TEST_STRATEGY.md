@@ -48,6 +48,8 @@ flowchart TB
 - Gate 4: Tenant isolation regression suite passes.
 - Gate 5: Security regression suite passes.
 
+Branch protection and required check contexts for these gates are versioned in `docs/CI_BRANCH_PROTECTION_POLICY.md`.
+
 ## 5. Coverage Targets
 - Domain and application service lines: >= 80%.
 - Critical paths (auth, trade decision, transfer, fee charge): >= 90% branch coverage.
