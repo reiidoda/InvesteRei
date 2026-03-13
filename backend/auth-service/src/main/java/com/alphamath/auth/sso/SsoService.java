@@ -44,6 +44,7 @@ import java.security.PublicKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.RSAPublicKeySpec;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -56,6 +57,9 @@ import org.w3c.dom.NodeList;
 
 @Service
 public class SsoService {
+  private static final long OIDC_CLOCK_SKEW_SECONDS = 60;
+  private static final long SAML_CLOCK_SKEW_SECONDS = 30;
+
   private final OrganizationRepository orgs;
   private final IdentityProviderRepository providers;
   private final OrganizationMemberRepository members;
@@ -350,12 +354,25 @@ public class SsoService {
         asLong(payload.get("expires_in")));
   }
 
-  private Claims parseOidcIdToken(String idToken, IdentityProviderEntity provider, SsoLoginSessionEntity session, String issuerOverride) {
-    PublicKey key = resolveOidcKey(provider);
+  Claims parseOidcIdToken(String idToken, IdentityProviderEntity provider, SsoLoginSessionEntity session, String issuerOverride) {
+    Map<String, Object> header = parseJwtHeader(idToken);
+    String keyId = asString(header.get("kid"));
+    String alg = asString(header.get("alg"));
+    PublicKey key = resolveOidcKey(provider, keyId, alg);
     if (key == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC provider missing verification key");
     }
-    Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(idToken).getPayload();
+    Claims claims;
+    try {
+      claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(idToken).getPayload();
+    } catch (io.jsonwebtoken.ExpiredJwtException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token expired");
+    } catch (io.jsonwebtoken.PrematureJwtException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token not yet valid");
+    } catch (Exception e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OIDC token");
+    }
+    validateOidcTemporalClaims(claims);
     String issuer = provider.getIssuer();
     if ((issuer == null || issuer.isBlank()) && issuerOverride != null && !issuerOverride.isBlank()) {
       issuer = issuerOverride;
@@ -366,8 +383,7 @@ public class SsoService {
       }
     }
     if (provider.getClientId() != null) {
-      Object aud = claims.get("aud");
-      if (!audMatches(provider.getClientId(), aud)) {
+      if (!audMatches(provider.getClientId(), claims.getAudience(), claims.get("aud"))) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC audience mismatch");
       }
     }
@@ -380,9 +396,50 @@ public class SsoService {
     return claims;
   }
 
-  private PublicKey resolveOidcKey(IdentityProviderEntity provider) {
+  private void validateOidcTemporalClaims(Claims claims) {
+    Instant now = Instant.now();
+    Date exp = claims.getExpiration();
+    if (exp == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token missing expiry");
+    }
+    if (!now.isBefore(exp.toInstant().plusSeconds(OIDC_CLOCK_SKEW_SECONDS))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token expired");
+    }
+
+    Date nbf = claims.getNotBefore();
+    if (nbf != null && now.isBefore(nbf.toInstant().minusSeconds(OIDC_CLOCK_SKEW_SECONDS))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token not yet valid");
+    }
+
+    Date iat = claims.getIssuedAt();
+    if (iat != null && iat.toInstant().isAfter(now.plusSeconds(OIDC_CLOCK_SKEW_SECONDS))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token issued-at is in the future");
+    }
+    if (iat != null && !iat.toInstant().isBefore(exp.toInstant())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OIDC token issued-at/expiry window invalid");
+    }
+  }
+
+  private Map<String, Object> parseJwtHeader(String token) {
+    try {
+      String[] parts = token.split("\\.");
+      if (parts.length < 2) {
+        throw new IllegalArgumentException("Malformed JWT");
+      }
+      byte[] decoded = Base64.getUrlDecoder().decode(parts[0]);
+      return mapper.readValue(decoded, Map.class);
+    } catch (Exception e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OIDC token header");
+    }
+  }
+
+  PublicKey resolveOidcKey(IdentityProviderEntity provider, String keyId, String alg) {
     if (provider.getX509Cert() != null && !provider.getX509Cert().isBlank()) {
-      return parseCertificate(provider.getX509Cert());
+      try {
+        return parseCertificate(provider.getX509Cert());
+      } catch (ResponseStatusException ignored) {
+        // Fall through to JWKS lookup when certificate is malformed.
+      }
     }
     String jwksUrl = provider.getJwksUrl();
     if ((jwksUrl == null || jwksUrl.isBlank()) && provider.getMetadataUrl() != null) {
@@ -397,17 +454,60 @@ public class SsoService {
     if (!(keys instanceof List<?> list) || list.isEmpty()) {
       return null;
     }
-    Object first = list.get(0);
-    if (!(first instanceof Map<?, ?> map)) {
+    PublicKey fallback = null;
+    for (Object entry : list) {
+      if (!(entry instanceof Map<?, ?> map)) {
+        continue;
+      }
+      String kty = asString(map.get("kty"));
+      if (kty == null || !kty.equalsIgnoreCase("RSA")) {
+        continue;
+      }
+      String use = asString(map.get("use"));
+      if (use != null && !use.isBlank() && !"sig".equalsIgnoreCase(use)) {
+        continue;
+      }
+      String keyAlg = asString(map.get("alg"));
+      if (alg != null && !alg.isBlank() && keyAlg != null && !keyAlg.isBlank() && !alg.equalsIgnoreCase(keyAlg)) {
+        continue;
+      }
+
+      PublicKey parsed = parseJwksRsaKey(map);
+      if (parsed == null) {
+        continue;
+      }
+
+      String candidateKid = asString(map.get("kid"));
+      if (keyId != null && !keyId.isBlank()) {
+        if (keyId.equals(candidateKid)) {
+          return parsed;
+        }
+      } else if (fallback == null) {
+        fallback = parsed;
+      }
+    }
+    if (keyId != null && !keyId.isBlank()) {
       return null;
     }
-    String kty = asString(map.get("kty"));
-    if (kty == null || !kty.equalsIgnoreCase("RSA")) {
-      return null;
+    return fallback;
+  }
+
+  private PublicKey parseJwksRsaKey(Map<?, ?> map) {
+    Object x5cObj = map.get("x5c");
+    if (x5cObj instanceof List<?> x5cList && !x5cList.isEmpty()) {
+      String cert = asString(x5cList.get(0));
+      if (cert != null && !cert.isBlank()) {
+        try {
+          return parseCertificate("-----BEGIN CERTIFICATE-----\n" + cert + "\n-----END CERTIFICATE-----");
+        } catch (ResponseStatusException ignored) {
+          // Fall back to modulus/exponent if present.
+        }
+      }
     }
+
     String n = asString(map.get("n"));
     String e = asString(map.get("e"));
-    if (n == null || e == null) {
+    if (n == null || e == null || n.isBlank() || e.isBlank()) {
       return null;
     }
     try {
@@ -415,7 +515,7 @@ public class SsoService {
       byte[] eBytes = Base64.getUrlDecoder().decode(e);
       RSAPublicKeySpec spec = new RSAPublicKeySpec(new java.math.BigInteger(1, nBytes), new java.math.BigInteger(1, eBytes));
       return KeyFactory.getInstance("RSA").generatePublic(spec);
-    } catch (Exception e1) {
+    } catch (Exception ignored) {
       return null;
     }
   }
@@ -494,21 +594,12 @@ public class SsoService {
       factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
       Document doc = factory.newDocumentBuilder().parse(new ByteArrayInputStream(decoded));
 
-      if (provider.getX509Cert() == null || provider.getX509Cert().isBlank()) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML provider missing certificate");
-      }
-      validateSignature(doc, provider.getX509Cert());
-
       Element response = (Element) doc.getDocumentElement();
       if (response == null) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid SAML response");
       }
-      String inResponseTo = response.getAttribute("InResponseTo");
-      if (session.getRequestId() != null && !session.getRequestId().isBlank()) {
-        if (inResponseTo != null && !inResponseTo.isBlank() && !session.getRequestId().equals(inResponseTo)) {
-          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML InResponseTo mismatch");
-        }
-      }
+
+      validateInResponseTo(response, session);
 
       String issuer = textContent(doc, "Issuer");
       if (provider.getIssuer() != null && !provider.getIssuer().isBlank()) {
@@ -523,6 +614,11 @@ public class SsoService {
       }
       validateConditions(assertion);
       validateAudience(assertion);
+
+      if (provider.getX509Cert() == null || provider.getX509Cert().isBlank()) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML provider missing certificate");
+      }
+      validateSignature(doc, provider.getX509Cert());
 
       String nameId = null;
       NodeList nameIds = assertion.getElementsByTagNameNS("urn:oasis:names:tc:SAML:2.0:assertion", "NameID");
@@ -543,6 +639,19 @@ public class SsoService {
     }
   }
 
+  private void validateInResponseTo(Element response, SsoLoginSessionEntity session) {
+    if (session == null || session.getRequestId() == null || session.getRequestId().isBlank()) {
+      return;
+    }
+    String inResponseTo = response.getAttribute("InResponseTo");
+    if (inResponseTo == null || inResponseTo.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML InResponseTo missing");
+    }
+    if (!session.getRequestId().equals(inResponseTo)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML InResponseTo mismatch");
+    }
+  }
+
   private void validateSignature(Document doc, String certPem) throws Exception {
     NodeList nl = doc.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
     if (nl.getLength() == 0) {
@@ -558,28 +667,44 @@ public class SsoService {
 
   private void validateConditions(Element assertion) {
     NodeList conditions = assertion.getElementsByTagNameNS("urn:oasis:names:tc:SAML:2.0:assertion", "Conditions");
-    if (conditions.getLength() == 0) return;
+    if (conditions.getLength() == 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML conditions missing");
+    }
     Element cond = (Element) conditions.item(0);
     String notBefore = cond.getAttribute("NotBefore");
     String notOnOrAfter = cond.getAttribute("NotOnOrAfter");
-    Instant now = Instant.now();
-    if (notBefore != null && !notBefore.isBlank()) {
-      Instant nb = Instant.parse(notBefore);
-      if (now.isBefore(nb.minusSeconds(30))) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML assertion not yet valid");
-      }
+    if ((notBefore == null || notBefore.isBlank()) && (notOnOrAfter == null || notOnOrAfter.isBlank())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML conditions missing validity window");
     }
-    if (notOnOrAfter != null && !notOnOrAfter.isBlank()) {
-      Instant noa = Instant.parse(notOnOrAfter);
-      if (!now.isBefore(noa)) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML assertion expired");
+    Instant now = Instant.now();
+    Instant nb = null;
+    Instant noa = null;
+    try {
+      if (notBefore != null && !notBefore.isBlank()) {
+        nb = Instant.parse(notBefore);
       }
+      if (notOnOrAfter != null && !notOnOrAfter.isBlank()) {
+        noa = Instant.parse(notOnOrAfter);
+      }
+    } catch (DateTimeException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid SAML conditions timestamp");
+    }
+    if (nb != null && noa != null && !nb.isBefore(noa)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML conditions validity window invalid");
+    }
+    if (nb != null && now.isBefore(nb.minusSeconds(SAML_CLOCK_SKEW_SECONDS))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML assertion not yet valid");
+    }
+    if (noa != null && !now.isBefore(noa.plusSeconds(SAML_CLOCK_SKEW_SECONDS))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML assertion expired");
     }
   }
 
   private void validateAudience(Element assertion) {
     NodeList audiences = assertion.getElementsByTagNameNS("urn:oasis:names:tc:SAML:2.0:assertion", "Audience");
-    if (audiences.getLength() == 0) return;
+    if (audiences.getLength() == 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SAML audience missing");
+    }
     boolean matched = false;
     for (int i = 0; i < audiences.getLength(); i++) {
       String val = audiences.item(i).getTextContent();
@@ -690,15 +815,28 @@ public class SsoService {
     return null;
   }
 
-  private boolean audMatches(String clientId, Object aud) {
-    if (aud == null) return false;
-    if (aud instanceof List<?> list) {
+  private boolean audMatches(String clientId, Set<String> audienceValues, Object audClaim) {
+    if (audienceValues != null && !audienceValues.isEmpty()) {
+      for (String value : audienceValues) {
+        if (clientId.equals(String.valueOf(value))) {
+          return true;
+        }
+      }
+    }
+    if (audClaim == null) return false;
+    if (audClaim instanceof List<?> list) {
       for (Object v : list) {
         if (clientId.equals(String.valueOf(v))) return true;
       }
       return false;
     }
-    return clientId.equals(String.valueOf(aud));
+    if (audClaim instanceof Set<?> set) {
+      for (Object v : set) {
+        if (clientId.equals(String.valueOf(v))) return true;
+      }
+      return false;
+    }
+    return clientId.equals(String.valueOf(audClaim));
   }
 
   private PublicKey parseCertificate(String pem) {
@@ -742,7 +880,7 @@ public class SsoService {
     }
   }
 
-  private Map<String, Object> fetchJson(String url) {
+  Map<String, Object> fetchJson(String url) {
     ResponseEntity<String> res = restTemplate.getForEntity(url, String.class);
     if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Failed to fetch metadata");

@@ -30,6 +30,12 @@ flowchart LR
 - Enterprise federation:
   - OIDC Authorization Code + PKCE.
   - SAML 2.0 (signed assertions, audience and clock skew checks).
+  - OIDC callback hardening: issuer/audience/nonce plus explicit expiry (`exp`), not-before (`nbf`),
+    and issued-at (`iat`) boundary validation.
+  - JWKS key selection hardening: choose usable RSA signing keys, prefer matching key identifiers when present,
+    and fall back from malformed static cert configuration to JWKS discovery.
+  - SAML callback hardening: strict `InResponseTo` enforcement when request IDs are tracked, required conditions
+    validity windows, and rejection of malformed condition timestamps.
 - Provisioning: SCIM 2.0 for user and membership lifecycle.
 
 ## 5. Authorization Model
