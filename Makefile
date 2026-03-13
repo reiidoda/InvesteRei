@@ -3,7 +3,7 @@ COMPOSE ?= docker compose
 MVN_IMAGE ?= maven:3.9-eclipse-temurin-21
 SERVICES := auth-service gateway portfolio-service simulation-service
 
-.PHONY: up down logs ps build restart test smoke-gateway smoke-gateway-ci
+.PHONY: up down logs ps build restart test smoke-gateway smoke-gateway-ci tenant-isolation-matrix
 
 up:
 	$(COMPOSE) up --build
@@ -34,3 +34,6 @@ smoke-gateway:
 
 smoke-gateway-ci:
 	@bash scripts/smoke/gateway_e2e_smoke.sh --start-stack --cleanup
+
+tenant-isolation-matrix:
+	@bash scripts/ci/tenant_isolation_matrix.sh

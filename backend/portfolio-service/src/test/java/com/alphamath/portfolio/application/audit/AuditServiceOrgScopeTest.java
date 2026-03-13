@@ -70,4 +70,18 @@ class AuditServiceOrgScopeTest {
     verify(events).findByUserIdAndEntityIdOrderByCreatedAtDesc(
         eq("user-1"), eq("proposal-1"), any(Pageable.class));
   }
+
+  @Test
+  void exportCsvUsesOrgScopedListQueryWhenOrgContextExists() {
+    MDC.put("orgId", "org-1");
+    when(events.findByUserIdAndOrgIdOrderByCreatedAtDesc(
+        eq("user-1"), eq("org-1"), any(Pageable.class)))
+        .thenReturn(List.of());
+
+    String csv = service.exportCsv("user-1", null, null, 20);
+
+    assertTrue(csv.startsWith("id,orgId,actor,eventType,entityType,entityId,createdAt,prevHash,eventHash,metadata"));
+    verify(events).findByUserIdAndOrgIdOrderByCreatedAtDesc(eq("user-1"), eq("org-1"), any(Pageable.class));
+    verify(events, never()).findByUserIdOrderByCreatedAtDesc(eq("user-1"), any(Pageable.class));
+  }
 }

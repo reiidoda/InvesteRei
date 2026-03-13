@@ -3,6 +3,7 @@
     "strict": true,
     "contexts": [
       "CI Required Checks / backend-maven-test",
+      "CI Required Checks / tenant-isolation-matrix",
       "CI Required Checks / frontend-web-build",
       "CI Required Checks / mobile-flutter-quality",
       "CI Required Checks / docs-policy-check"

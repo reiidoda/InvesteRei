@@ -8,20 +8,23 @@ Define the mandatory merge quality gate for `main` with explicit, versioned chec
 | Version | Date | Notes |
 | --- | --- | --- |
 | `v1.0` | `2026-03-13` | Initial required checks and branch protection baseline. |
+| `v1.1` | `2026-03-13` | Add tenant isolation regression matrix as required check (`Gate 4`). |
 
-## Required Checks (`v1.0`)
+## Required Checks (`v1.1`)
 All pull requests targeting `main` must pass these check contexts:
 
 1. `CI Required Checks / backend-maven-test`
-2. `CI Required Checks / frontend-web-build`
-3. `CI Required Checks / mobile-flutter-quality`
-4. `CI Required Checks / docs-policy-check`
+2. `CI Required Checks / tenant-isolation-matrix`
+3. `CI Required Checks / frontend-web-build`
+4. `CI Required Checks / mobile-flutter-quality`
+5. `CI Required Checks / docs-policy-check`
 
 These checks are produced by:
 - [ci-required-checks.yml](../.github/workflows/ci-required-checks.yml)
 
-`v1.0` check definitions:
+`v1.1` check definitions:
 - `backend-maven-test`: Maven test run for `auth-service`, `gateway`, `portfolio-service`, and `simulation-service`.
+- `tenant-isolation-matrix`: targeted tenant isolation regression suite execution via `scripts/ci/tenant_isolation_matrix.sh`.
 - `frontend-web-build`: dependency install + Angular production build.
 - `mobile-flutter-quality`: Flutter dependency resolution + `flutter test` when test files exist.
 - `docs-policy-check`: validates policy doc/index/gate references are present.

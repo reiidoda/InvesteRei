@@ -50,6 +50,8 @@ flowchart TB
 - Gate 5: Security regression suite passes.
 
 Branch protection and required check contexts for these gates are versioned in `docs/CI_BRANCH_PROTECTION_POLICY.md`.
+Gate 4 tenant-isolation suite definition and evidence mapping are versioned in
+`docs/TENANT_ISOLATION_MATRIX.md` and executed by `scripts/ci/tenant_isolation_matrix.sh`.
 
 ## 5. Coverage Targets
 - Domain and application service lines: >= 80%.
