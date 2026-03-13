@@ -19,8 +19,6 @@ Future<void> _expectInvalidTokenFailure(Future<Object?> Function() action) async
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   late FakeMobileApiServer server;
 
   setUpAll(() async {
