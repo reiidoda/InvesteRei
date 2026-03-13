@@ -1,0 +1,106 @@
+name: CI Required Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-required-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-maven-test:
+    name: backend-maven-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Run backend Maven tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for svc in auth-service gateway portfolio-service simulation-service; do
+            echo "==> ${svc}"
+            (cd "backend/${svc}" && mvn -B -q test)
+          done
+
+  frontend-web-build:
+    name: frontend-web-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        run: npm run build
+
+  mobile-flutter-quality:
+    name: mobile-flutter-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: mobile/investerei_app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Flutter test
+        run: flutter test
+
+  docs-policy-check:
+    name: docs-policy-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate CI policy references
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f docs/CI_BRANCH_PROTECTION_POLICY.md
+          grep -n "CI & Branch Protection Policy" docs/README.md
+          grep -n "Release Readiness Gate" docs/CI_BRANCH_PROTECTION_POLICY.md
+          grep -n "docs/TEST_STRATEGY.md" docs/CI_BRANCH_PROTECTION_POLICY.md

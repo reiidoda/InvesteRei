@@ -15,6 +15,7 @@ SCM governs source control, branching, versioning, release promotion, and enviro
 - Required checks must pass.
 - No direct pushes to protected branches.
 - Link PR to issue/milestone where applicable.
+- For explicit required checks and branch protection payload, see `docs/CI_BRANCH_PROTECTION_POLICY.md`.
 
 ## 4. Commit and Versioning
 - Use structured commit messages (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
@@ -48,3 +49,8 @@ flowchart LR
 - All production changes traceable to PR and tag.
 - Migration scripts versioned with service code.
 - Incident fixes include postmortem and preventive action item.
+
+## 9. Policy Versioning
+- CI quality gate policy is versioned in `docs/CI_BRANCH_PROTECTION_POLICY.md`.
+- Branch protection JSON for `main` is versioned in `.github/branch-protection/main.json`.
+- Any required-check change must update policy version and branch-protection config in the same PR.
