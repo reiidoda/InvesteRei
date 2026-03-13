@@ -54,6 +54,7 @@ gantt
 
 ## Delivery Governance
 - Every milestone requires a release readiness review.
+- vNext scope closeout acceptance criteria are versioned in `docs/RELEASE_READINESS_CHECKLIST.md`.
 - Every major architecture change requires an ADR.
 - Every critical endpoint requires contract + authorization tests.
 

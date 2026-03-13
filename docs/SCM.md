@@ -29,6 +29,8 @@ SCM governs source control, branching, versioning, release promotion, and enviro
 - Release notes must include latest gateway smoke suite result (`PASS/FAIL` + run reference) per `docs/GATEWAY_SMOKE_SUITE.md`.
 - Release notes must include latest tenant isolation matrix result (`PASS/FAIL` + run reference)
   per `docs/TENANT_ISOLATION_MATRIX.md`.
+- Release notes and go/no-go decisions must include completed evidence from
+  `docs/RELEASE_READINESS_CHECKLIST.md`.
 
 ## 5. Configuration Management
 - Environment variables are source-of-truth for deploy-time settings.
