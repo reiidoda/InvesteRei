@@ -107,10 +107,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -d test ] && find test -name '*_test.dart' -print -quit | grep -q .; then
-            flutter test
+          unit_tests="$(find test -name '*_test.dart' ! -path 'test/integration/*')"
+          if [ -n "${unit_tests}" ]; then
+            # shellcheck disable=SC2086
+            flutter test ${unit_tests}
           else
-            echo "No Flutter tests found; skipping test step."
+            echo "No non-integration Flutter tests found; skipping unit test step."
+          fi
+
+      - name: Flutter integration tests (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d test/integration ] && find test/integration -name '*_test.dart' -print -quit | grep -q .; then
+            flutter test test/integration
+          else
+            echo "No Flutter integration tests found; skipping integration test step."
           fi
 
   docs-policy-check:
