@@ -21,6 +21,7 @@
 ## Data, API, and distributed systems
 - [Database Strategy and Design](DATABASE_STRATEGY.md)
 - [API Design and Security](API_DESIGN_SECURITY.md)
+- [Org Admin Authorization Matrix](ORG_ADMIN_AUTHORIZATION_MATRIX.md)
 - [Distributed System Design](DISTRIBUTED_SYSTEM_DESIGN.md)
 
 ## Performance, reliability, and quality

@@ -42,6 +42,8 @@ flowchart LR
 - Layer 1: coarse role-based authorization (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`).
 - Layer 2: org-scoped access checks using tenant context.
 - Layer 3: operation-level policy checks (for trading, funding, admin exports).
+- Org-admin endpoints (`/api/v1/admin/org/**`) are enforced by trusted JWT org claims (`org_roles`, `org_id`);
+  forwarded headers are not authoritative for these checks.
 
 ## 6. API Security Baselines
 - TLS 1.2+ required externally.
