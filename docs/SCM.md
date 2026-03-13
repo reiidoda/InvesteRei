@@ -27,6 +27,8 @@ SCM governs source control, branching, versioning, release promotion, and enviro
 - Adopt semantic versioning (`MAJOR.MINOR.PATCH`).
 - Tag releases and publish release notes with migration notes.
 - Release notes must include latest gateway smoke suite result (`PASS/FAIL` + run reference) per `docs/GATEWAY_SMOKE_SUITE.md`.
+- Release notes must include latest tenant isolation matrix result (`PASS/FAIL` + run reference)
+  per `docs/TENANT_ISOLATION_MATRIX.md`.
 
 ## 5. Configuration Management
 - Environment variables are source-of-truth for deploy-time settings.
