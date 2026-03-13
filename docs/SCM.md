@@ -17,6 +17,11 @@ SCM governs source control, branching, versioning, release promotion, and enviro
 - Link PR to issue/milestone where applicable.
 - For explicit required checks and branch protection payload, see `docs/CI_BRANCH_PROTECTION_POLICY.md`.
 
+## 3.1 Issue Intake and Triage
+- Use standardized GitHub issue templates for bug, feature, and engineering task intake.
+- Every issue must be classifiable by type, area, priority, and owner during intake.
+- Triage states, SLA targets, ownership rules, and milestone assignment rules are defined in `docs/TRIAGE_WORKFLOW.md`.
+
 ## 4. Commit and Versioning
 - Use structured commit messages (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
 - Adopt semantic versioning (`MAJOR.MINOR.PATCH`).
