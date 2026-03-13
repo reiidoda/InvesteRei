@@ -7,6 +7,7 @@
 
 ## Core architecture and design
 - [Architecture](ARCHITECTURE.md)
+- [Architecture Decision Records (ADRs)](adr/README.md)
 - [High-Level Design (HLD)](HLD.md)
 - [Low-Level Design (LLD)](LLD.md)
 - [Software Requirements](SOFTWARE_REQUIREMENTS.md)

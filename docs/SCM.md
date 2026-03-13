@@ -59,3 +59,8 @@ flowchart LR
 - CI quality gate policy is versioned in `docs/CI_BRANCH_PROTECTION_POLICY.md`.
 - Branch protection JSON for `main` is versioned in `.github/branch-protection/main.json`.
 - Any required-check change must update policy version and branch-protection config in the same PR.
+
+## 10. ADR Governance
+- ADR process and conventions are defined in `docs/adr/README.md`.
+- Every major architecture change must include a new ADR or explicitly supersede an existing ADR.
+- ADR updates must be linked from the implementing PR and related issue.
