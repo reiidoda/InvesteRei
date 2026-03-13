@@ -32,6 +32,7 @@
 - [Open Source Roadmap](ROADMAP.md)
 - [Software Configuration Management](SCM.md)
 - [CI & Branch Protection Policy](CI_BRANCH_PROTECTION_POLICY.md)
+- [Issue Triage Workflow](TRIAGE_WORKFLOW.md)
 - [Engineering Reference Foundations](REFERENCE_FOUNDATIONS.md)
 - [SEO and Search Growth Playbook](SEO_GROWTH_PLAYBOOK.md)
 

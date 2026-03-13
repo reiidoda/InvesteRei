@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Triage workflow
+    url: https://github.com/reiidoda/InvesteRei/blob/main/docs/TRIAGE_WORKFLOW.md
+    about: Review issue state, ownership, priority, and milestone rules before filing.
   - name: Security reporting
     url: https://github.com/reiidoda/InvesteRei/blob/main/SECURITY.md
     about: Please report vulnerabilities privately using the security policy.
