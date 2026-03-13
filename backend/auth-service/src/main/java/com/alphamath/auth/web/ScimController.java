@@ -54,9 +54,9 @@ public class ScimController {
 
   @GetMapping("/Users")
   public Map<String, Object> listUsers(@RequestHeader("Authorization") String auth,
-                                       @RequestParam(required = false) String filter,
-                                       @RequestParam(required = false, defaultValue = "1") int startIndex,
-                                       @RequestParam(required = false, defaultValue = "50") int count) {
+                                       @RequestParam(name = "filter", required = false) String filter,
+                                       @RequestParam(name = "startIndex", required = false, defaultValue = "1") int startIndex,
+                                       @RequestParam(name = "count", required = false, defaultValue = "50") int count) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     List<Map<String, Object>> resources = new ArrayList<>();
 
@@ -120,7 +120,7 @@ public class ScimController {
 
   @GetMapping("/Users/{id}")
   public Map<String, Object> getUser(@RequestHeader("Authorization") String auth,
-                                     @PathVariable Long id) {
+                                     @PathVariable("id") Long id) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     UserEntity user = users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     OrganizationMemberEntity membership = members.findByOrgIdAndUserId(principal.orgId(), user.getId())
@@ -130,7 +130,7 @@ public class ScimController {
 
   @PutMapping("/Users/{id}")
   public Map<String, Object> replaceUser(@RequestHeader("Authorization") String auth,
-                                         @PathVariable Long id,
+                                         @PathVariable("id") Long id,
                                          @Valid @RequestBody ScimUserPayload payload) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     UserEntity user = users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -149,7 +149,7 @@ public class ScimController {
 
   @PatchMapping("/Users/{id}")
   public Map<String, Object> patchUser(@RequestHeader("Authorization") String auth,
-                                       @PathVariable Long id,
+                                       @PathVariable("id") Long id,
                                        @RequestBody ScimPatchRequest payload) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     UserEntity user = users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -200,7 +200,7 @@ public class ScimController {
 
   @DeleteMapping("/Users/{id}")
   public void deleteUser(@RequestHeader("Authorization") String auth,
-                         @PathVariable Long id) {
+                         @PathVariable("id") Long id) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     UserEntity user = users.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     OrganizationMemberEntity membership = members.findByOrgIdAndUserId(principal.orgId(), user.getId())
@@ -231,14 +231,14 @@ public class ScimController {
 
   @GetMapping("/Groups/{id}")
   public Map<String, Object> getGroup(@RequestHeader("Authorization") String auth,
-                                      @PathVariable String id) {
+                                      @PathVariable("id") String id) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     return scimGroup(principal.orgId(), id);
   }
 
   @PatchMapping("/Groups/{id}")
   public Map<String, Object> patchGroup(@RequestHeader("Authorization") String auth,
-                                        @PathVariable String id,
+                                        @PathVariable("id") String id,
                                         @RequestBody ScimPatchRequest payload) {
     ScimAuthService.ScimPrincipal principal = scimAuth.authenticate(auth);
     String role = organizations.normalizeOrgRole(id);

@@ -91,6 +91,8 @@ sequenceDiagram
 
 ## 9. Current Gap Notes
 - Automated test suites are currently limited in-repo and should be expanded per this strategy.
+- Auth-service now includes SSO/SCIM API contract tests with request/response fixtures under
+  `backend/auth-service/src/test/resources/fixtures`.
 - Baseline org-scope service/repository regression tests are now present in
   `backend/portfolio-service/src/test`, including audit, execution, notification,
   reporting, research, and market-data entitlement paths.

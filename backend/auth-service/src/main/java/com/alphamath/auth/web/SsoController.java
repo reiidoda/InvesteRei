@@ -15,11 +15,11 @@ public class SsoController {
   }
 
   @GetMapping("/oidc/start")
-  public ResponseEntity<SsoService.SsoStartResponse> oidcStart(@RequestParam(required = false) Long orgId,
-                                                               @RequestParam(required = false) String orgSlug,
-                                                               @RequestParam(required = false) Long providerId,
-                                                               @RequestParam(required = false) String redirectUri,
-                                                               @RequestParam(required = false, defaultValue = "false") boolean redirect) {
+  public ResponseEntity<SsoService.SsoStartResponse> oidcStart(@RequestParam(name = "orgId", required = false) Long orgId,
+                                                               @RequestParam(name = "orgSlug", required = false) String orgSlug,
+                                                               @RequestParam(name = "providerId", required = false) Long providerId,
+                                                               @RequestParam(name = "redirectUri", required = false) String redirectUri,
+                                                               @RequestParam(name = "redirect", required = false, defaultValue = "false") boolean redirect) {
     SsoService.SsoStartResponse start = sso.startOidc(orgId, orgSlug, providerId, redirectUri, redirect);
     if (redirect) {
       return ResponseEntity.status(302).header(HttpHeaders.LOCATION, start.authorizationUrl()).build();
@@ -28,16 +28,17 @@ public class SsoController {
   }
 
   @GetMapping("/oidc/callback")
-  public SsoService.SsoLoginResponse oidcCallback(@RequestParam String code, @RequestParam String state) {
+  public SsoService.SsoLoginResponse oidcCallback(@RequestParam(name = "code") String code,
+                                                  @RequestParam(name = "state") String state) {
     return sso.handleOidcCallback(code, state);
   }
 
   @GetMapping("/saml/start")
-  public ResponseEntity<SsoService.SsoStartResponse> samlStart(@RequestParam(required = false) Long orgId,
-                                                               @RequestParam(required = false) String orgSlug,
-                                                               @RequestParam(required = false) Long providerId,
-                                                               @RequestParam(required = false) String redirectUri,
-                                                               @RequestParam(required = false, defaultValue = "false") boolean redirect) {
+  public ResponseEntity<SsoService.SsoStartResponse> samlStart(@RequestParam(name = "orgId", required = false) Long orgId,
+                                                               @RequestParam(name = "orgSlug", required = false) String orgSlug,
+                                                               @RequestParam(name = "providerId", required = false) Long providerId,
+                                                               @RequestParam(name = "redirectUri", required = false) String redirectUri,
+                                                               @RequestParam(name = "redirect", required = false, defaultValue = "false") boolean redirect) {
     SsoService.SsoStartResponse start = sso.startSaml(orgId, orgSlug, providerId, redirectUri, redirect);
     if (redirect) {
       return ResponseEntity.status(302).header(HttpHeaders.LOCATION, start.authorizationUrl()).build();
