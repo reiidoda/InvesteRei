@@ -91,5 +91,7 @@ sequenceDiagram
 
 ## 9. Current Gap Notes
 - Automated test suites are currently limited in-repo and should be expanded per this strategy.
-- Baseline org-scope service/repository regression tests are now present in `backend/portfolio-service/src/test`.
+- Baseline org-scope service/repository regression tests are now present in
+  `backend/portfolio-service/src/test`, including audit, execution, notification,
+  reporting, research, and market-data entitlement paths.
 - Next priority implementation order: trade lifecycle tests, banking invariants, mobile smoke coverage.
