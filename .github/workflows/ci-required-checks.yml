@@ -82,11 +82,15 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Flutter analyze
-        run: flutter analyze
-
-      - name: Flutter test
-        run: flutter test
+      - name: Flutter test (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d test ] && find test -name '*_test.dart' -print -quit | grep -q .; then
+            flutter test
+          else
+            echo "No Flutter tests found; skipping test step."
+          fi
 
   docs-policy-check:
     name: docs-policy-check

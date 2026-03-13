@@ -20,6 +20,12 @@ All pull requests targeting `main` must pass these check contexts:
 These checks are produced by:
 - [ci-required-checks.yml](../.github/workflows/ci-required-checks.yml)
 
+`v1.0` check definitions:
+- `backend-maven-test`: Maven test run for `auth-service`, `gateway`, `portfolio-service`, and `simulation-service`.
+- `frontend-web-build`: dependency install + Angular production build.
+- `mobile-flutter-quality`: Flutter dependency resolution + `flutter test` when test files exist.
+- `docs-policy-check`: validates policy doc/index/gate references are present.
+
 ## Merge Rules (`main`)
 1. Pull request only (no direct pushes).
 2. Minimum approvals: `1`.
