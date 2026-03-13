@@ -18,6 +18,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -36,6 +39,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
     if (auth == null || !auth.startsWith("Bearer ")) {
+      SecurityContextHolder.clearContext();
       response.setStatus(HttpStatus.UNAUTHORIZED.value());
       return;
     }
@@ -43,16 +47,74 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     try {
       String token = auth.substring("Bearer ".length()).trim();
       Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+      Object tokenType = claims.get("type");
+      if (!"access".equals(tokenType == null ? null : tokenType.toString())) {
+        SecurityContextHolder.clearContext();
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        return;
+      }
 
-      Object uidClaim = claims.get("uid");
-      String userId = uidClaim == null ? "" : String.valueOf(uidClaim);
+      String userId = claimString(claims.get("uid"));
+      if (userId == null || userId.isBlank()) {
+        SecurityContextHolder.clearContext();
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        return;
+      }
+      String email = claimString(claims.get("email"));
+      String orgId = claimString(claims.get("org_id"));
+      Set<String> roles = parseRoles(claims.get("roles"));
+      Set<String> orgRoles = parseRoles(claims.get("org_roles"));
+      AuthenticatedRequestContext context = new AuthenticatedRequestContext(userId, email, orgId, roles, orgRoles);
       UsernamePasswordAuthenticationToken authentication =
           new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+      authentication.setDetails(context);
       SecurityContextHolder.getContext().setAuthentication(authentication);
 
       filterChain.doFilter(request, response);
     } catch (Exception e) {
+      SecurityContextHolder.clearContext();
       response.setStatus(HttpStatus.UNAUTHORIZED.value());
+    }
+  }
+
+  private String claimString(Object value) {
+    if (value == null) {
+      return null;
+    }
+    String normalized = String.valueOf(value).trim();
+    return normalized.isEmpty() ? null : normalized;
+  }
+
+  private Set<String> parseRoles(Object claim) {
+    if (claim == null) {
+      return Set.of();
+    }
+    LinkedHashSet<String> out = new LinkedHashSet<>();
+    if (claim instanceof Iterable<?> iterable) {
+      for (Object item : iterable) {
+        addRoleValues(out, item == null ? null : String.valueOf(item));
+      }
+    } else {
+      addRoleValues(out, String.valueOf(claim));
+    }
+    if (out.isEmpty()) {
+      return Set.of();
+    }
+    return Collections.unmodifiableSet(out);
+  }
+
+  private void addRoleValues(LinkedHashSet<String> out, String value) {
+    if (value == null || value.isBlank()) {
+      return;
+    }
+    for (String role : value.split(",")) {
+      if (role == null) {
+        continue;
+      }
+      String normalized = role.trim().toUpperCase(Locale.US);
+      if (!normalized.isEmpty()) {
+        out.add(normalized);
+      }
     }
   }
 }

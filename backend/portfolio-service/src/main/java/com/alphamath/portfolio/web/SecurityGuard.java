@@ -1,6 +1,9 @@
 package com.alphamath.portfolio.web;
 
+import com.alphamath.portfolio.security.AuthenticatedRequestContext;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,7 +35,14 @@ public class SecurityGuard {
     if (properties == null || properties.getRbac() == null || !properties.getRbac().isEnforce()) {
       return;
     }
-    if (!hasAnyRole(rolesHeader, allowedRoles)) {
+    if (!hasAnyRole(resolveUserRoles(rolesHeader), allowedRoles)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient role");
+    }
+  }
+
+  public void requireOrgRole(String... allowedRoles) {
+    // Org-admin endpoints always require org role checks.
+    if (!hasAnyRole(resolveOrgRoles(), allowedRoles)) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient role");
     }
   }
@@ -48,12 +58,34 @@ public class SecurityGuard {
         || normalized.equals("verified");
   }
 
-  private boolean hasAnyRole(String header, String... allowedRoles) {
-    if (allowedRoles == null || allowedRoles.length == 0) {
-      return true;
+  private Set<String> resolveUserRoles(String rolesHeader) {
+    Set<String> trusted = trustedRoles(false);
+    if (!trusted.isEmpty()) {
+      return trusted;
     }
+    return parseRolesHeader(rolesHeader);
+  }
+
+  private Set<String> resolveOrgRoles() {
+    return trustedRoles(true);
+  }
+
+  private Set<String> trustedRoles(boolean orgRoles) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null) {
+      return Set.of();
+    }
+    Object details = authentication.getDetails();
+    if (!(details instanceof AuthenticatedRequestContext context)) {
+      return Set.of();
+    }
+    Set<String> roles = orgRoles ? context.orgRoles() : context.roles();
+    return roles == null ? Set.of() : roles;
+  }
+
+  private Set<String> parseRolesHeader(String header) {
     if (header == null || header.isBlank()) {
-      return false;
+      return Set.of();
     }
     Set<String> roles = new HashSet<>();
     for (String part : header.split(",")) {
@@ -63,7 +95,14 @@ public class SecurityGuard {
         roles.add(normalized);
       }
     }
-    if (roles.isEmpty()) {
+    return roles;
+  }
+
+  private boolean hasAnyRole(Set<String> roles, String... allowedRoles) {
+    if (allowedRoles == null || allowedRoles.length == 0) {
+      return true;
+    }
+    if (roles == null || roles.isEmpty()) {
       return false;
     }
     for (String allowed : allowedRoles) {
