@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class _LegEntry {
@@ -51,7 +52,7 @@ class _ManualTradeScreenState extends State<ManualTradeScreen> {
   final horizonCtrl = TextEditingController(text: '1');
   final lookbackCtrl = TextEditingController(text: '120');
 
-  List<dynamic> accounts = [];
+  List<Map<String, dynamic>> accounts = [];
   String? accountId;
 
   String side = 'BUY';
@@ -98,9 +99,12 @@ class _ManualTradeScreenState extends State<ManualTradeScreen> {
     setState(() => msg = 'Loading accounts...');
     try {
       final res = await Api.brokerAccounts();
-      accounts = res;
+      accounts = res
+          .whereType<Map>()
+          .map((account) => Map<String, dynamic>.from(account))
+          .toList();
       if (accounts.isNotEmpty) {
-        accountId ??= accounts.first['id'];
+        accountId ??= accounts.first['id']?.toString();
       }
       msg = '';
     } catch (e) {
@@ -353,9 +357,10 @@ class _ManualTradeScreenState extends State<ManualTradeScreen> {
             DropdownButtonFormField<String>(
               value: accountId,
               decoration: const InputDecoration(labelText: 'Broker Account'),
-              items: accounts.map((acct) {
+              items: accounts.map<DropdownMenuItem<String>>((acct) {
+                final accountValue = acct['id']?.toString() ?? '';
                 final label = '${acct['providerName'] ?? acct['providerId'] ?? 'Broker'} • ${acct['accountNumber'] ?? acct['id']}';
-                return DropdownMenuItem(value: acct['id'], child: Text(label));
+                return DropdownMenuItem<String>(value: accountValue, child: Text(label));
               }).toList(),
               onChanged: (v) => setState(() => accountId = v),
             ),
@@ -496,7 +501,7 @@ class _ManualTradeScreenState extends State<ManualTradeScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
             if (review != null) ...[
               const SizedBox(height: 12),
               if (review?['ai']?['summary'] != null)

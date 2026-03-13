@@ -21,6 +21,31 @@ import 'screens/surveillance.dart';
 import 'screens/best_execution.dart';
 import 'screens/org_admin.dart';
 
+final Map<String, WidgetBuilder> appRoutes = <String, WidgetBuilder>{
+  '/': (_) => const HomeScreen(),
+  '/home': (_) => const HomeScreen(),
+  '/login': (_) => const LoginScreen(),
+  '/portfolio-lab': (_) => const PortfolioLabScreen(),
+  '/portfolio-builder': (_) => const PortfolioBuilderScreen(),
+  '/audit': (_) => const AuditLogScreen(),
+  '/market-data': (_) => const MarketDataScreen(),
+  '/auto-invest': (_) => const AutoInvestScreen(),
+  '/simulation': (_) => const SimulationScreen(),
+  '/ai': (_) => const AiScreen(),
+  '/watchlists': (_) => const WatchlistsScreen(),
+  '/alerts': (_) => const AlertsScreen(),
+  '/statements': (_) => const StatementsScreen(),
+  '/research': (_) => const ResearchScreen(),
+  '/manual-trade': (_) => const ManualTradeScreen(),
+  '/banking': (_) => const BankingScreen(),
+  '/wealth-plan': (_) => const WealthPlanScreen(),
+  '/screeners': (_) => const ScreenerScreen(),
+  '/rewards': (_) => const RewardsScreen(),
+  '/surveillance': (_) => const SurveillanceScreen(),
+  '/best-execution': (_) => const BestExecutionScreen(),
+  '/org-admin': (_) => const OrgAdminScreen(),
+};
+
 void main() {
   runApp(const InvesteReiApp());
 }
@@ -36,30 +61,7 @@ class InvesteReiApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF111111)),
         useMaterial3: true,
       ),
-      routes: {
-        '/': (_) => const HomeScreen(),
-        '/home': (_) => const HomeScreen(),
-        '/login': (_) => const LoginScreen(),
-        '/portfolio-lab': (_) => const PortfolioLabScreen(),
-        '/portfolio-builder': (_) => const PortfolioBuilderScreen(),
-        '/audit': (_) => const AuditLogScreen(),
-        '/market-data': (_) => const MarketDataScreen(),
-        '/auto-invest': (_) => const AutoInvestScreen(),
-        '/simulation': (_) => const SimulationScreen(),
-        '/ai': (_) => const AiScreen(),
-        '/watchlists': (_) => const WatchlistsScreen(),
-        '/alerts': (_) => const AlertsScreen(),
-        '/statements': (_) => const StatementsScreen(),
-        '/research': (_) => const ResearchScreen(),
-        '/manual-trade': (_) => const ManualTradeScreen(),
-        '/banking': (_) => const BankingScreen(),
-        '/wealth-plan': (_) => const WealthPlanScreen(),
-        '/screeners': (_) => const ScreenerScreen(),
-        '/rewards': (_) => const RewardsScreen(),
-        '/surveillance': (_) => const SurveillanceScreen(),
-        '/best-execution': (_) => const BestExecutionScreen(),
-        '/org-admin': (_) => const OrgAdminScreen(),
-      },
+      routes: appRoutes,
       initialRoute: '/',
     );
   }

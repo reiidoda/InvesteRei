@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class ScreenerScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _ScreenerScreenState extends State<ScreenerScreen> {
           const Text('Filter securities by valuation and research criteria.',
               style: TextStyle(color: Colors.black54)),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           const SizedBox(height: 8),
           TextField(controller: sectorCtrl, decoration: const InputDecoration(labelText: 'Sector')),
           const SizedBox(height: 8),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class BankingScreen extends StatefulWidget {
@@ -74,7 +75,7 @@ class _BankingScreenState extends State<BankingScreen> {
           const Text('Instant banking/investing transfers.',
               style: TextStyle(color: Colors.black54)),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           const SizedBox(height: 8),
           if (account != null) ...[
             Text('Cash: ${account?['cash'] ?? 0} ${account?['currency'] ?? 'USD'}',

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class SimulationScreen extends StatefulWidget {
@@ -136,7 +137,7 @@ class _SimulationScreenState extends State<SimulationScreen> {
             const SizedBox(height: 8),
             ElevatedButton(onPressed: refresh, child: const Text('Refresh Status')),
             const SizedBox(height: 6),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
 
             if (job != null) ...[
               const SizedBox(height: 12),

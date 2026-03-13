@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class AiScreen extends StatefulWidget {
@@ -155,7 +156,7 @@ class _AiScreenState extends State<AiScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
 
             if (forecast != null) ...[
               const SizedBox(height: 8),

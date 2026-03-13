@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class RewardsScreen extends StatefulWidget {
@@ -77,7 +78,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
           const Text('Campaign offers + enrollment qualification tracking.',
               style: TextStyle(color: Colors.black54)),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: selectedOfferId,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class MarketDataScreen extends StatefulWidget {
@@ -248,7 +249,7 @@ class _MarketDataScreenState extends State<MarketDataScreen> {
             const SizedBox(height: 8),
             ElevatedButton(onPressed: loadQuotes, child: const Text('Load Quotes')),
             const SizedBox(height: 6),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
 
             if (quoteMeta != null) ...[
               const SizedBox(height: 8),

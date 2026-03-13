@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class WealthPlanScreen extends StatefulWidget {
@@ -110,7 +111,7 @@ class _WealthPlanScreenState extends State<WealthPlanScreen> {
         children: [
           const Text('Goal-based planning with simulation.', style: TextStyle(color: Colors.black54)),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           const SizedBox(height: 8),
           TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Plan name')),
           const SizedBox(height: 8),

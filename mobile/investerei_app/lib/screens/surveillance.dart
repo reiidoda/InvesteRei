@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class SurveillanceScreen extends StatefulWidget {
@@ -64,7 +65,7 @@ class _SurveillanceScreenState extends State<SurveillanceScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           if (alerts.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(const JsonEncoder.withIndent('  ').convert(alerts)),
