@@ -26,6 +26,7 @@ SCM governs source control, branching, versioning, release promotion, and enviro
 - Use structured commit messages (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
 - Adopt semantic versioning (`MAJOR.MINOR.PATCH`).
 - Tag releases and publish release notes with migration notes.
+- Release notes must include latest gateway smoke suite result (`PASS/FAIL` + run reference) per `docs/GATEWAY_SMOKE_SUITE.md`.
 
 ## 5. Configuration Management
 - Environment variables are source-of-truth for deploy-time settings.

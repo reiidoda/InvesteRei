@@ -35,6 +35,7 @@ flowchart TB
 ### End-to-End Tests
 - Cross-service flow through gateway on dockerized stack.
 - Critical user journeys on web and mobile clients.
+- Gateway smoke script is versioned at `scripts/smoke/gateway_e2e_smoke.sh` (local + CI runnable).
 
 ### Non-Functional Tests
 - Load test on read-heavy market and reporting APIs.
