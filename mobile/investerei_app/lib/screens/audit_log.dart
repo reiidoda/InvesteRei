@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class AuditLogScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                 style: TextStyle(color: Colors.black54)),
             const SizedBox(height: 12),
             if (msg.isNotEmpty)
-              Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              ModuleFeedback(message: msg),
             if (events.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(const JsonEncoder.withIndent('  ').convert(events)),

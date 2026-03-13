@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class _LegEntry {
@@ -496,7 +497,7 @@ class _ManualTradeScreenState extends State<ManualTradeScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
             if (review != null) ...[
               const SizedBox(height: 12),
               if (review?['ai']?['summary'] != null)

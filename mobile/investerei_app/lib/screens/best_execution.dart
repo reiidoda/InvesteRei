@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class BestExecutionScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _BestExecutionScreenState extends State<BestExecutionScreen> {
           const SizedBox(height: 8),
           ElevatedButton(onPressed: load, child: const Text('Refresh')),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           if (records.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(const JsonEncoder.withIndent('  ').convert(records)),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class OrgAdminScreen extends StatefulWidget {
@@ -65,7 +66,7 @@ class _OrgAdminScreenState extends State<OrgAdminScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ModuleFeedback(message: msg),
           if (summary != null) ...[
             const SizedBox(height: 12),
             const Text('Summary', style: TextStyle(fontWeight: FontWeight.w600)),

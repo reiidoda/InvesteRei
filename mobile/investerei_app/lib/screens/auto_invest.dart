@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class AutoInvestScreen extends StatefulWidget {
@@ -329,7 +330,7 @@ class _AutoInvestScreenState extends State<AutoInvestScreen> {
             const SizedBox(height: 8),
             ElevatedButton(onPressed: createPlan, child: const Text('Create Plan')),
             const SizedBox(height: 6),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
 
             const SizedBox(height: 16),
             const Text('Plans', style: TextStyle(fontWeight: FontWeight.w600)),

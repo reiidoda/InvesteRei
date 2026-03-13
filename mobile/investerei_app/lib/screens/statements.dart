@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class StatementsScreen extends StatefulWidget {
@@ -460,7 +461,7 @@ class _StatementsScreenState extends State<StatementsScreen> {
               Text(const JsonEncoder.withIndent('  ').convert(reconcileResult)),
             ],
             const SizedBox(height: 12),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
           ],
         ),
       ),

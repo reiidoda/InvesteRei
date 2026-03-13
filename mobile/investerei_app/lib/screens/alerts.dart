@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class AlertsScreen extends StatefulWidget {
@@ -131,7 +132,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             const SizedBox(height: 8),
             ElevatedButton(onPressed: createAlert, child: const Text('Create Alert')),
             const SizedBox(height: 8),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
             const SizedBox(height: 12),
             ElevatedButton(onPressed: loadAlerts, child: const Text('Refresh Alerts')),
             const SizedBox(height: 8),

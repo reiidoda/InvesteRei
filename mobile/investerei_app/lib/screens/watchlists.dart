@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/module_feedback.dart';
 import '../services/api.dart';
 
 class WatchlistsScreen extends StatefulWidget {
@@ -136,7 +137,7 @@ class _WatchlistsScreenState extends State<WatchlistsScreen> {
             const SizedBox(height: 8),
             ElevatedButton(onPressed: createWatchlist, child: const Text('Create Watchlist')),
             const SizedBox(height: 8),
-            Text(msg, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ModuleFeedback(message: msg),
             const SizedBox(height: 12),
 
             if (watchlists.isNotEmpty) ...[

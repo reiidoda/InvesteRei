@@ -31,6 +31,7 @@
 - [Software Maintenance and Reliability](OPERATIONS_MAINTENANCE.md)
 - [Testing Strategy](TEST_STRATEGY.md)
 - [Gateway End-to-End Smoke Suite](GATEWAY_SMOKE_SUITE.md)
+- [Mobile Enterprise Smoke Checklist](MOBILE_ENTERPRISE_SMOKE_CHECKLIST.md)
 
 ## Delivery and governance
 - [Open Source Roadmap](ROADMAP.md)
