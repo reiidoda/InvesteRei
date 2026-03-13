@@ -99,4 +99,6 @@ sequenceDiagram
 - Baseline org-scope service/repository regression tests are now present in
   `backend/portfolio-service/src/test`, including audit, execution, notification,
   reporting, research, and market-data entitlement paths.
-- Next priority implementation order: trade lifecycle tests, banking invariants, mobile smoke coverage.
+- Mobile integration coverage for critical workflows is now versioned under
+  `mobile/investerei_app/test/integration` with deterministic fixtures and fake API server support.
+- Next priority implementation order: trade lifecycle tests, banking invariants.
